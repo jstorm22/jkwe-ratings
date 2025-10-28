@@ -186,7 +186,10 @@
     function qs(s, r=document){ return r.querySelector(s); }
     function escapeAttr(v){ return String(v).replace(/"/g,'&quot;'); }
     function slugify(s){ return String(s).normalize('NFKD').replace(/[^\w\s-]/g,'').trim().replace(/[\s_]+/g,'-').replace(/-+/g,'-').toLowerCase(); }
-    function escapeHtml(s){ return String(s).replace(/[&<>\"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',\"'\":'&#39;'}[m])); }
+    function escapeHtml(s){
+      const map = {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;', "'":'&#39;'};
+      return String(s).replace(/[&<>"']/g, ch => map[ch]);
+    }
 
     // Render
     function render(){
