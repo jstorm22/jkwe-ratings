@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>JKWE · Review Guide</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .tabular-nums { font-variant-numeric: tabular-nums; }
+    .line-clamp-4 { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+  </style>
+</head>
+<body class="min-h-screen bg-white text-gray-900">
+  <div id="app"></div>
+  <input id="file-input" type="file" accept="application/json" class="hidden" />
+
+  <!-- Card template -->
+  <template id="card-template">
+    <div class="group rounded-xl border overflow-hidden shadow-sm hover:shadow-md transition relative bg-white">
+      <div class="ranks absolute top-2 left-2 flex flex-col gap-1 z-10"></div>
+      <div class="posterWrap aspect-[2/3] overflow-hidden bg-gray-100">
+        <img class="poster w-full h-full object-cover" alt="poster" onerror="this.style.display='none'" />
+      </div>
+      <div class="p-3 space-y-1">
+        <div class="title text-base font-semibold leading-tight"></div>
+        <p class="synopsis text-xs text-gray-700 line-clamp-4"></p>
+        <div class="hovercard absolute inset-0 bg-black/70 text-white text-xs p-3 flex flex-col gap-1 pointer-events-none opacity-0 group-hover:opacity-100 transition">
+          <div class="mt-auto space-y-1">
+            <div class="meta-dir"></div>
+            <div class="meta-prod"></div>
+            <div class="meta-run"></div>
+            <div class="meta-bud"></div>
+            <div class="meta-dist"></div>
+            <div class="text-[10px] opacity-80">Hover for details · Click opens IMDb</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- Ranked row template -->
+  <template id="rank-row-template">
+    <tr class="border-b last:border-none">
+      <td class="px-2 py-2">
+        <div class="flex items-center gap-2">
+          <img class="thumb w-8 h-12 object-cover rounded-md hidden" alt="poster" />
+          <div>
+            <div class="t text-sm font-medium leading-tight"></div>
+            <div class="y text-[11px] text-gray-500"></div>
+          </div>
+        </div>
+      </td>
+      <td class="px-2 py-2 tabular-nums jrank"></td>
+      <td class="px-2 py-2 tabular-nums krank"></td>
+    </tr>
+  </template>
+
+  <script>
+    // ===== Password (stored in localStorage under 'jkwe_pw') =====
+    function getPassword(){ return localStorage.getItem('jkwe_pw') || 'sage42'; }
+    function setPassword(p){ localStorage.setItem('jkwe_pw', p); }
+    let EDIT_PASSWORD = getPassword();
+
+    // ===== Jonathan & Karl lists (39 total) =====
+    const J_LIST = [
+      'Jurassic Park',
+      'Mandalorian – Season One',
+      'Superman (2025)',
+      'Fantastic Four: First Steps',
+      'The Northman',
+      'Sinners',
+      'Psycho',
+      'Top Gun: Maverick',
+      'Amsterdam',
+      'Kiss Of The Spider-Woman (1985)',
+      'Dahmer – Monster: The Jeffrey Dahmer Story',
+      'Psycho Beach Party',
+      'Under The Skin',
+      'Gone With The Wind',
+      'Carry-On',
+      'A Streetcar Named Desire',
+      'The Lost World: Jurassic Park',
+      'Jurassic World: Rebirth',
+      'Jurassic World: Dominion',
+      'King Kong (1933)',
+      'The Happytime Murders',
+      'Dunkirk',
+      'Jurassic Park III',
+      'Jurassic World: Fallen Kingdom',
+      'The Graduate',
+      'Some Like It Hot',
+      'Jurassic World',
+      'Rebel Moon Part Two',
+      'Gran Turismo',
+      'RuPaul’s Drag Race – Season Nine',
+      'Safe House',
+      'RuPaul’s Drag Race – Season Five',
+      'Rebel Moon Part One',
+      'Top Gun',
+      'Space Jam',
+      'Paul',
+      'Avatar 2: The Way Of Water',
+      'Avatar',
+      'Space Jam: A New Legacy'
+    ];
+
+    const K_LIST = [
+      'Jurassic Park',
+      'Sinners',
+      'Superman (2025)',
+      'Fantastic Four: First Steps',
+      'The Northman',
+      'Amsterdam',
+      'Dunkirk',
+      'Psycho',
+      'Under The Skin',
+      'Space Jam',
+      'King Kong (1933)',
+      'Kiss Of The Spider-Woman (1985)',
+      'Mandalorian – Season One',
+      'Safe House',
+      'Carry-On',
+      'The Lost World: Jurassic Park',
+      'Jurassic World: Rebirth',
+      'Psycho Beach Party',
+      'Some Like It Hot',
+      'Gran Turismo',
+      'RuPaul’s Drag Race – Season Nine',
+      'Jurassic Park III',
+      'A Streetcar Named Desire',
+      'The Happytime Murders',
+      'Jurassic World: Dominion',
+      'Jurassic World: Fallen Kingdom',
+      'Dahmer – Monster: The Jeffrey Dahmer Story',
+      'The Graduate',
+      'Paul',
+      'Jurassic World',
+      'Rebel Moon: Part Two',
+      'Top Gun: Maverick',
+      'Space Jam: A New Legacy',
+      'RuPaul’s Drag Race – Season Five',
+      'Avatar 2: The Way Of Water',
+      'Rebel Moon: Part One',
+      'Avatar',
+      'Gone With The Wind',
+      'Top Gun'
+    ];
+
+    // Minimal IMDb links we have so far (add the rest in Editors)
+    const IMDB_MAP = new Map([
+      ['Kiss Of The Spider-Woman (1985)', 'https://www.imdb.com/title/tt0089424/?ref_=fn_all_ttl_2'],
+      ['A Streetcar Named Desire', 'https://www.imdb.com/title/tt0044081/?ref_=fn_all_ttl_1'],
+      ['Some Like It Hot', 'https://www.imdb.com/title/tt0053291/?ref_=fn_all_ttl_1'],
+      ['Psycho Beach Party', 'https://www.imdb.com/title/tt0120051/?ref_=fn_all_ttl_3'],
+      ['The Happytime Murders', 'https://www.imdb.com/title/tt1308728/?ref_=nv_sr_srsg_0_tt_8_nm_0_in_0_q_the%2520happytime'],
+      ['Carry-On', 'https://www.imdb.com/title/tt21382296/?ref_=nv_sr_srsg_0_tt_8_nm_0_in_0_q_carryon']
+    ]);
+
+    // Build base dataset
+    const TITLES = Array.from(new Set([...J_LIST, ...K_LIST]));
+    const baseMovies = TITLES.map(title => ({
+      id: slugify(title),
+      title,
+      year: (title.match(/\((\d{4})\)/) ? parseInt(title.match(/\((\d{4})\)/)[1],10) : undefined),
+      poster: undefined,
+      synopsis: undefined,
+      director: undefined,
+      producers: undefined,
+      runtimeMin: undefined,
+      budget: undefined,
+      distributor: undefined,
+      imdbUrl: IMDB_MAP.get(title),
+      ratings: {
+        jonathan: J_LIST.indexOf(title) + 1,
+        karl: K_LIST.indexOf(title) + 1
+      }
+    }));
+
+    // App state
+    let unlocked = sessionStorage.getItem('jkwe_unlocked') === '1';
+    let activeTab = 'posters';
+    let query = '';
+    let movies = baseMovies;
+
+    // Utils
+    function qs(s, r=document){ return r.querySelector(s); }
+    function escapeAttr(v){ return String(v).replace(/"/g,'&quot;'); }
+    function slugify(s){ return String(s).normalize('NFKD').replace(/[^\w\s-]/g,'').trim().replace(/[\s_]+/g,'-').replace(/-+/g,'-').toLowerCase(); }
+    function escapeHtml(s){ return String(s).replace(/[&<>\"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',\"'\":'&#39;'}[m])); }
+
+    // Render
+    function render(){
+      const app = qs('#app');
+      app.innerHTML = `
+        <div class="sticky top-0 z-40 backdrop-blur bg-white/70 border-b">
+          <div class="max-w-7xl mx-auto px-4 py-3 flex items-center gap-3">
+            <div class="text-xl font-semibold tracking-tight">JKWE · Review Guide</div>
+            <div class="ml-auto flex items-center gap-2">
+              <input id="search" placeholder="Search title…" value="${escapeAttr(query)}" class="px-3 py-2 rounded-xl border w-64 focus:outline-none focus:ring" />
+              ${unlocked ? '<button id="lock" class="px-3 py-2 rounded-xl border">🔓 Lock</button>' : '<button id="unlock" class="px-3 py-2 rounded-xl border">🔒 Unlock</button>'}
+            </div>
+          </div>
+          <div class="max-w-7xl mx-auto px-4 pb-3 flex items-center gap-2">
+            <button id="tab-posters" class="px-3 py-2 rounded-xl border ${activeTab==='posters'?'bg-black text-white':''}">Posters</button>
+            <button id="tab-ranked"  class="px-3 py-2 rounded-xl border ${activeTab==='ranked'?'bg-black text-white':''}">Ranked List</button>
+            ${unlocked ? `<button id="tab-editor" class="px-3 py-2 rounded-xl border ${activeTab==='editor'?'bg-black text-white':''}">Editors</button>` : ''}
+          </div>
+        </div>
+        <main class="max-w-7xl mx-auto px-4 py-6" id="main"></main>
+      `;
+
+      qs('#search').addEventListener('input', e => { query = e.target.value; draw(); });
+      const ub = qs('#unlock'); if (ub) ub.onclick = () => { const p = prompt('Enter password'); if (p===EDIT_PASSWORD){ unlocked=true; sessionStorage.setItem('jkwe_unlocked','1'); draw('editor'); } else { alert('Incorrect password'); } };
+      const lb = qs('#lock');   if (lb) lb.onclick = () => { unlocked=false; sessionStorage.removeItem('jkwe_unlocked'); draw('posters'); };
+      qs('#tab-posters').onclick = ()=> draw('posters');
+      qs('#tab-ranked').onclick  = ()=> draw('ranked');
+      const tE = qs('#tab-editor'); if (tE) tE.onclick = ()=> draw('editor');
+
+      draw(activeTab);
+    }
+
+    function filterMovies(list, q){
+      const s = q.trim().toLowerCase();
+      if (!s) return list;
+      return list.filter(m => [m.title, String(m.year||''), m.director||'', m.producers||'', m.distributor||'']
+        .filter(Boolean).some(t => String(t).toLowerCase().includes(s)));
+    }
+
+    function draw(tab){ if (tab) activeTab = tab; const main = qs('#main');
+      const filtered = filterMovies(movies, query).slice().sort((a,b)=>a.title.localeCompare(b.title)); // alphabetical by default
+      if (activeTab==='posters') main.replaceChildren(viewPosters(filtered));
+      if (activeTab==='ranked')  main.replaceChildren(viewRanked(filtered));
+      if (activeTab==='editor')  main.replaceChildren(viewEditor());
+    }
+
+    function viewPosters(list){
+      const grid = document.createElement('div');
+      grid.className = 'grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4';
+      const tpl = qs('#card-template');
+      list.forEach(m => {
+        const card = tpl.content.firstElementChild.cloneNode(true);
+        const rb = card.querySelector('.ranks');
+        const j = m.ratings?.jonathan ?? '—';
+        const k = m.ratings?.karl ?? '—';
+        rb.innerHTML = `<span class="text-[10px] px-2 py-1 rounded-full bg-black/80 text-white">J#${j}</span>
+                        <span class="text-[10px] px-2 py-1 rounded-full bg-black/60 text-white">K#${k}</span>`;
+        const poster = card.querySelector('.poster');
+        if (m.poster){ poster.src = m.poster; } else { poster.style.display='none'; }
+        const title = card.querySelector('.title');
+        if (m.imdbUrl){
+          title.innerHTML = `<a href="${m.imdbUrl}" target="_blank" rel="noopener noreferrer" class="hover:underline">${m.title}${m.year?` <span class='text-gray-500 font-normal'>(${m.year})</span>`:''}</a>`;
+        } else {
+          title.innerHTML = `${m.title} ${m.year?`<span class='text-gray-500 font-normal'>(${m.year})</span>`:''}`;
+        }
+        const s = card.querySelector('.synopsis'); s.textContent = m.synopsis || '';
+        card.querySelector('.meta-dir').textContent = 'Director: ' + (m.director || '—');
+        card.querySelector('.meta-prod').textContent = 'Producers: ' + (m.producers || '—');
+        card.querySelector('.meta-run').textContent  = 'Running time: ' + (m.runtimeMin ? (m.runtimeMin+' min') : '—');
+        card.querySelector('.meta-bud').textContent  = 'Budget: ' + (m.budget || '—');
+        card.querySelector('.meta-dist').textContent = 'Distributed by: ' + (m.distributor || '—');
+
+        // poster click → IMDb
+        const posterWrap = card.querySelector('.posterWrap');
+        if (m.imdbUrl) {
+          posterWrap.style.cursor = 'pointer';
+          posterWrap.addEventListener('click', () => window.open(m.imdbUrl, '_blank', 'noopener'));
+        }
+
+        grid.appendChild(card);
+      });
+      return grid;
+    }
+
+    function viewRanked(list){
+      const wrap = document.createElement('div');
+      wrap.className = 'rounded-xl border overflow-hidden';
+      const table = document.createElement('table');
+      table.className = 'w-full text-sm';
+      table.innerHTML = `<thead class="bg-gray-50 border-b"><tr>
+        <th class="text-left text-sm font-semibold px-2 py-2">Title</th>
+        <th class="text-left text-sm font-semibold px-2 py-2">J Rank</th>
+        <th class="text-left text-sm font-semibold px-2 py-2">K Rank</th>
+      </tr></thead><tbody></tbody>`;
+      const tbody = table.querySelector('tbody');
+      const tpl = qs('#rank-row-template');
+      list.forEach(m => {
+        const row = tpl.content.firstElementChild.cloneNode(true);
+        const img = row.querySelector('.thumb');
+        if (m.poster){ img.src = m.poster; img.classList.remove('hidden'); img.onerror = () => img.classList.add('hidden'); }
+        const titleCell = row.querySelector('.t');
+        if (m.imdbUrl){
+          titleCell.innerHTML = `<a href="${m.imdbUrl}" target="_blank" rel="noopener noreferrer" class="hover:underline">${m.title}</a>`;
+        } else {
+          titleCell.textContent = m.title;
+        }
+        row.querySelector('.y').textContent = m.year || '';
+        const jCell = row.querySelector('.jrank');
+        const kCell = row.querySelector('.krank');
+        jCell.textContent = m.ratings?.jonathan ?? '—';
+        kCell.textContent = m.ratings?.karl ?? '—';
+        if (m.ratings?.jonathan <= 10) jCell.classList.add('font-bold');
+        if (m.ratings?.karl     <= 10) kCell.classList.add('font-bold');
+        tbody.appendChild(row);
+      });
+      wrap.appendChild(table);
+      return wrap;
+    }
+
+    function viewEditor(){
+      const box = document.createElement('div');
+      box.className = 'space-y-6';
+
+      // Import/Export
+      const ie = document.createElement('div');
+      ie.className = 'rounded-xl border p-4';
+      ie.innerHTML = `<div class="font-semibold mb-2">Data Management</div>
+        <p class="text-sm text-gray-600 mb-3">Import or export JSON, add new titles, edit any field, and manage your password.</p>
+        <div class="flex items-center gap-2 mb-2">
+          <button id="btn-import" class="px-3 py-2 rounded-xl border">Movie Import</button>
+          <button id="btn-export" class="px-3 py-2 rounded-xl border">Movie Export</button>
+        </div>`;
+      box.appendChild(ie);
+
+      // Add movie
+      const add = document.createElement('div');
+      add.className = 'rounded-xl border p-4 space-y-3';
+      add.innerHTML = `
+        <div class="font-semibold">Add a Movie</div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <input id="f-title" class="px-3 py-2 rounded-xl border" placeholder="Title"/>
+          <input id="f-year"  class="px-3 py-2 rounded-xl border" placeholder="Year"/>
+          <input id="f-j"     class="px-3 py-2 rounded-xl border" placeholder="Jonathan Rank (1=best)"/>
+          <input id="f-k"     class="px-3 py-2 rounded-xl border" placeholder="Karl Rank (1=best)"/>
+          <input id="f-poster" class="md:col-span-2 px-3 py-2 rounded-xl border" placeholder="Poster URL (or upload below)"/>
+          <textarea id="f-syn" class="md:col-span-2 px-3 py-2 rounded-xl border" rows="2" placeholder="Synopsis"></textarea>
+          <input id="f-imdb" class="md:col-span-2 px-3 py-2 rounded-xl border" placeholder="IMDb URL (for click-through)"/>
+          <input id="f-dir"  class="px-3 py-2 rounded-xl border" placeholder="Director"/>
+          <input id="f-prod" class="px-3 py-2 rounded-xl border" placeholder="Producers (comma-separated)"/>
+          <input id="f-run"  class="px-3 py-2 rounded-xl border" placeholder="Running time (min)"/>
+          <input id="f-bud"  class="px-3 py-2 rounded-xl border" placeholder="Budget (e.g., 80 million USD)"/>
+          <input id="f-dist" class="px-3 py-2 rounded-xl border" placeholder="Distributed by"/>
+        </div>
+        <div class="flex items-center gap-2">
+          <input id="f-file" type="file" accept="image/*" class="hidden"/>
+          <button id="f-upload" class="px-3 py-2 rounded-xl border">Upload Poster</button>
+          <button id="f-add" class="px-3 py-2 rounded-xl border bg-black text-white">Add Movie</button>
+          <img id="f-preview" class="h-14 w-10 object-cover rounded-md hidden" alt="preview"/>
+        </div>`;
+      box.appendChild(add);
+
+      // Password Manager
+      const pw = document.createElement('div');
+      pw.className = 'rounded-xl border p-4 space-y-3';
+      pw.innerHTML = `
+        <div class="font-semibold">Password Management</div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <input id="pw-current" type="password" class="px-3 py-2 rounded-xl border" placeholder="Current password"/>
+          <input id="pw-new" type="password" class="px-3 py-2 rounded-xl border" placeholder="New password"/>
+          <input id="pw-confirm" type="password" class="px-3 py-2 rounded-xl border" placeholder="Confirm new password"/>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="pw-save" class="px-3 py-2 rounded-xl border bg-black text-white">Change Password</button>
+          <div id="pw-msg" class="text-sm text-gray-600"></div>
+        </div>`;
+      box.appendChild(pw);
+
+      // Edit existing
+      const editWrap = document.createElement('div');
+      editWrap.className = 'rounded-xl border p-4 space-y-4';
+      editWrap.innerHTML = `<div class="font-semibold">Edit Existing Movies</div>
+        <input id="e-filter" class="px-3 py-2 rounded-xl border w-full md:w-96" placeholder="Filter by title…" />
+        <div id="e-list" class="space-y-4"></div>`;
+      box.appendChild(editWrap);
+
+      setTimeout(()=>{
+        // Import/export
+        qs('#btn-import').onclick = ()=> qs('#file-input').click();
+        qs('#btn-export').onclick = handleExport;
+
+        // Add movie
+        const fTitle=qs('#f-title'), fYear=qs('#f-year'), fJ=qs('#f-j'), fK=qs('#f-k'),
+              fPoster=qs('#f-poster'), fSyn=qs('#f-syn'), fImdb=qs('#f-imdb'),
+              fDir=qs('#f-dir'), fProd=qs('#f-prod'), fRun=qs('#f-run'), fBud=qs('#f-bud'), fDist=qs('#f-dist'),
+              fFile=qs('#f-file'), fUpload=qs('#f-upload'), fAdd=qs('#f-add'), fPrev=qs('#f-preview');
+
+        fUpload.onclick = () => fFile.click();
+        fFile.onchange = (e)=>{ const file = e.target.files?.[0]; if(!file) return; const reader = new FileReader();
+          reader.onload = ()=>{ fPoster.value = String(reader.result); fPrev.src = fPoster.value; fPrev.classList.remove('hidden'); };
+          reader.readAsDataURL(file); e.target.value = '';
+        };
+        fPoster.oninput = ()=>{ const v=fPoster.value.trim(); if(v){ fPrev.src=v; fPrev.classList.remove('hidden'); } else { fPrev.classList.add('hidden'); } };
+
+        fAdd.onclick = ()=>{
+          const title = fTitle.value.trim(); if(!title) return alert('Enter a title.');
+          const year = parseInt(fYear.value.trim(),10); const j = parseInt(fJ.value.trim(),10); const k = parseInt(fK.value.trim(),10);
+          const entry = {
+            id: slugify(title + (Number.isFinite(year)?'-'+year:'')), title,
+            year: Number.isFinite(year)? year: undefined,
+            poster: fPoster.value.trim()||undefined,
+            synopsis: fSyn.value.trim()||undefined,
+            imdbUrl: fImdb.value.trim()||undefined,
+            director: fDir.value.trim()||undefined,
+            producers: fProd.value.trim()||undefined,
+            runtimeMin: Number.isFinite(parseInt(fRun.value,10)) ? parseInt(fRun.value,10) : undefined,
+            budget: fBud.value.trim()||undefined,
+            distributor: fDist.value.trim()||undefined,
+            ratings: { jonathan: Number.isFinite(j)? j: undefined, karl: Number.isFinite(k)? k: undefined }
+          };
+          movies.push(entry);
+          alert('Movie added.');
+          fTitle.value=fYear.value=fJ.value=fK.value=fPoster.value=fSyn.value=fImdb.value=fDir.value=fProd.value=fRun.value=fBud.value=fDist.value='';
+          fPrev.classList.add('hidden');
+          draw('posters'); renderEditorsList();
+        };
+
+        // Password change
+        const pwCur=qs('#pw-current'), pwNew=qs('#pw-new'), pwCon=qs('#pw-confirm'), pwBtn=qs('#pw-save'), pwMsg=qs('#pw-msg');
+        pwBtn.onclick = ()=>{
+          if(pwCur.value !== EDIT_PASSWORD){ pwMsg.textContent = 'Current password is incorrect.'; pwMsg.className='text-sm text-red-600'; return; }
+          if(!pwNew.value || pwNew.value !== pwCon.value){ pwMsg.textContent = 'New passwords do not match.'; pwMsg.className='text-sm text-red-600'; return; }
+          setPassword(pwNew.value); EDIT_PASSWORD = getPassword(); pwCur.value=pwNew.value=pwCon.value='';
+          pwMsg.textContent = 'Password updated.'; pwMsg.className='text-sm text-green-600';
+        };
+
+        // Editors list (inline edit)
+        function renderEditorsList(){
+          const container = qs('#e-list');
+          const filter = qs('#e-filter').value.trim().toLowerCase();
+          container.innerHTML = '';
+          movies.slice().sort((a,b)=>a.title.localeCompare(b.title)).forEach((m, idx)=>{
+            if(filter && !m.title.toLowerCase().includes(filter)) return;
+            const row = document.createElement('div');
+            row.className = 'rounded-lg border p-3 grid grid-cols-1 md:grid-cols-6 gap-2 items-start';
+            row.innerHTML = `
+              <input class="e-title px-2 py-1 rounded border md:col-span-2" value="${escapeAttr(m.title)}"/>
+              <input class="e-year  px-2 py-1 rounded border" value="${m.year??''}" placeholder="Year"/>
+              <input class="e-j     px-2 py-1 rounded border" value="${m.ratings?.jonathan??''}" placeholder="J Rank"/>
+              <input class="e-k     px-2 py-1 rounded border" value="${m.ratings?.karl??''}" placeholder="K Rank"/>
+              <input class="e-imdb  px-2 py-1 rounded border md:col-span-2" value="${escapeAttr(m.imdbUrl||'')}" placeholder="IMDb URL"/>
+              <input class="e-poster px-2 py-1 rounded border md:col-span-2" value="${escapeAttr(m.poster||'')}" placeholder="Poster URL"/>
+              <input class="e-dir   px-2 py-1 rounded border" value="${escapeAttr(m.director||'')}" placeholder="Director"/>
+              <input class="e-prod  px-2 py-1 rounded border md:col-span-2" value="${escapeAttr(m.producers||'')}" placeholder="Producers"/>
+              <input class="e-run   px-2 py-1 rounded border" value="${m.runtimeMin??''}" placeholder="Runtime (min)"/>
+              <input class="e-bud   px-2 py-1 rounded border" value="${escapeAttr(m.budget||'')}" placeholder="Budget"/>
+              <input class="e-dist  px-2 py-1 rounded border" value="${escapeAttr(m.distributor||'')}" placeholder="Distributed by"/>
+              <textarea class="e-syn px-2 py-1 rounded border md:col-span-6" rows="2" placeholder="Synopsis">${m.synopsis?escapeHtml(m.synopsis):''}</textarea>
+              <div class="md:col-span-6 flex gap-2 justify-end">
+                <button class="save px-3 py-1 rounded border bg-black text-white">Save</button>
+                <button class="del px-3 py-1 rounded border">Delete</button>
+              </div>`;
+            row.querySelector('.save').onclick = ()=>{
+              const g = sel=>row.querySelector(sel);
+              m.title = g('.e-title').value.trim()||m.title;
+              const ny = parseInt(g('.e-year').value,10); m.year = Number.isFinite(ny)? ny: undefined;
+              const nj = parseInt(g('.e-j').value,10); m.ratings = m.ratings || {}; if(Number.isFinite(nj)) m.ratings.jonathan = nj; else delete m.ratings.jonathan;
+              const nk = parseInt(g('.e-k').value,10); m.ratings = m.ratings || {}; if(Number.isFinite(nk)) m.ratings.karl = nk; else delete m.ratings.karl;
+              m.imdbUrl = g('.e-imdb').value.trim()||undefined;
+              m.poster  = g('.e-poster').value.trim()||undefined;
+              m.director= g('.e-dir').value.trim()||undefined;
+              m.producers=g('.e-prod').value.trim()||undefined;
+              const rn = parseInt(g('.e-run').value,10); m.runtimeMin = Number.isFinite(rn)? rn: undefined;
+              m.budget = g('.e-bud').value.trim()||undefined;
+              m.distributor = g('.e-dist').value.trim()||undefined;
+              m.synopsis = g('.e-syn').value.trim()||undefined;
+              m.id = slugify(m.title + (m.year?'-'+m.year:''));
+              alert('Saved.');
+              draw(activeTab);
+            };
+            row.querySelector('.del').onclick = ()=>{
+              if(confirm('Delete this title?')){ movies.splice(idx,1); renderEditorsList(); draw(activeTab); }
+            };
+            container.appendChild(row);
+          });
+        }
+        qs('#e-filter').addEventListener('input', renderEditorsList);
+        renderEditorsList();
+      }, 0);
+
+      return box;
+    }
+
+    // Import/export (global handlers)
+    const fileInput = qs('#file-input');
+    function handleExport(){
+      const payload = JSON.stringify({ movies }, null, 2);
+      const blob = new Blob([payload], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'JKWE-Rankings-' + new Date().toISOString().slice(0,10) + '.json';
+      a.click(); URL.revokeObjectURL(url);
+    }
+    fileInput.addEventListener('change', (e) => {
+      const f = e.target.files && e.target.files[0];
+      if (!f) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const parsed = JSON.parse(String(reader.result));
+          const next = Array.isArray(parsed) ? parsed : parsed.movies;
+          if (!Array.isArray(next)) throw new Error('Bad structure');
+          movies = next; draw('posters');
+        } catch (err) {
+          alert('Unable to parse JSON. Expect an array of movies or { movies: [...] }');
+        }
+      };
+      reader.readAsText(f);
+      e.target.value = '';
+    });
+
+    // Boot
+    render();
+  </script>
+</body>
+</html>
