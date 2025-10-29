@@ -14,29 +14,23 @@
   <div id="app"></div>
   <input id="file-input" type="file" accept="application/json" class="hidden" />
 
-  <!-- Movie card template -->
+  <!-- Card template -->
   <template id="card-template">
     <div class="group rounded-xl border overflow-hidden shadow-sm hover:shadow-md transition relative bg-white">
-      <!-- rank badges -->
       <span class="jbadge absolute top-2 left-2 z-10 text-[10px] px-2 py-1 rounded-full bg-black/80 text-white"></span>
       <span class="kbadge absolute top-2 right-2 z-10 text-[10px] px-2 py-1 rounded-full bg-black/60 text-white"></span>
-
       <div class="posterWrap aspect-[2/3] overflow-hidden bg-gray-100">
         <img class="poster w-full h-full object-cover" alt="poster" onerror="this.style.display='none'" />
       </div>
-
       <div class="p-3 space-y-2 relative">
         <div class="title text-base font-semibold leading-tight"></div>
         <p class="synopsis text-sm text-gray-700 line-clamp-8"></p>
-
-        <!-- hover meta overlay -->
+        <!-- Hover overlay (only director, actors, runtime) -->
         <div class="absolute inset-0 bg-black/70 text-white text-xs p-3 flex flex-col gap-1 pointer-events-none opacity-0 group-hover:opacity-100 transition">
           <div class="mt-auto space-y-1">
             <div class="meta-dir"></div>
-            <div class="meta-prod"></div>
+            <div class="meta-cast"></div>
             <div class="meta-run"></div>
-            <div class="meta-bud"></div>
-            <div class="meta-dist"></div>
             <div class="text-[10px] opacity-80">Hover for details · Click opens IMDb</div>
           </div>
         </div>
@@ -45,9 +39,7 @@
   </template>
 
   <script>
-    /* =========================
-       Password / Settings (local)
-       ========================= */
+    /* ========= Local settings ========= */
     function getPassword(){ return localStorage.getItem('jkwe_pw') || 'sage42'; }
     function setPassword(p){ localStorage.setItem('jkwe_pw', p); }
     let EDIT_PASSWORD = getPassword();
@@ -58,9 +50,7 @@
     function getPodcastEmbed(){ return localStorage.getItem('jkwe_podcast_embed') || ''; }
     function setPodcastEmbed(v){ localStorage.setItem('jkwe_podcast_embed', v); }
 
-    /* =========================
-       Canonical ranking order (from your master list)
-       ========================= */
+    /* ========= Canonical rank orders ========= */
     const J_LIST = [
       'Jurassic Park','Mandalorian – Season One','Superman (2025)','Fantastic Four: First Steps','The Northman','Sinners',
       'Psycho','Top Gun: Maverick','Amsterdam','Kiss Of The Spider-Woman','Dahmer – Monster: The Jeffrey Dahmer Story',
@@ -81,50 +71,34 @@
       'Avatar 2: The Way Of Water','Rebel Moon: Part One','Avatar','Gone With The Wind','Top Gun'
     ];
 
-    // Optional IMDb hints to speed up linking
-    const IMDB_HINTS = new Map([
-      ['Kiss Of The Spider-Woman', 'https://www.imdb.com/title/tt0089424/'],
-      ['A Streetcar Named Desire', 'https://www.imdb.com/title/tt0044081/'],
-      ['Some Like It Hot', 'https://www.imdb.com/title/tt0053291/'],
-      ['Psycho Beach Party', 'https://www.imdb.com/title/tt0120051/'],
-      ['The Happytime Murders', 'https://www.imdb.com/title/tt1308728/'],
-      ['Carry-On', 'https://www.imdb.com/title/tt21382296/']
-    ]);
-
-    /* =========================
-       Build initial dataset from lists
-       ========================= */
     const TITLES = Array.from(new Set([...J_LIST, ...K_LIST]));
-    const moviesBase = TITLES.map(title => ({
-      id: slugify(title),
-      title,
-      year: (title.match(/\((\d{4})\)/) ? parseInt(title.match(/\((\d{4})\)/)[1],10) : undefined),
+
+    /* ========= App state ========= */
+    let unlocked = sessionStorage.getItem('jkwe_unlocked') === '1';
+    let activeTab = 'movies';  // movies | ranked | podcast | editor | rankmgr
+    let query = '';
+    let movies = TITLES.map(t => ({
+      id: slugify(t),
+      title: t,
+      year: (t.match(/\((\d{4})\)/) ? parseInt(t.match(/\((\d{4})\)/)[1],10) : undefined),
       poster: undefined,
       synopsis: undefined,
       director: undefined,
+      cast: [],              // NEW
       producers: undefined,
       runtimeMin: undefined,
       budget: undefined,
       distributor: undefined,
-      imdbUrl: IMDB_HINTS.get(title),
+      imdbUrl: undefined,
       ratings: {
-        jonathan: J_LIST.indexOf(title) >= 0 ? (J_LIST.indexOf(title)+1) : undefined,
-        karl:      K_LIST.indexOf(title) >= 0 ? (K_LIST.indexOf(title)+1) : undefined
+        jonathan: J_LIST.indexOf(t)>=0 ? (J_LIST.indexOf(t)+1) : undefined,
+        karl:     K_LIST.indexOf(t)>=0 ? (K_LIST.indexOf(t)+1) : undefined
       }
     }));
 
-    /* =========================
-       App state
-       ========================= */
-    let unlocked = sessionStorage.getItem('jkwe_unlocked') === '1';
-    let activeTab = 'movies';   // movies | ranked | podcast | editor
-    let query = '';
-    let movies = moviesBase;
-
-    /* =========================
-       Utilities
-       ========================= */
+    /* ========= Utilities ========= */
     function qs(s, r=document){ return r.querySelector(s); }
+    function qsa(s, r=document){ return Array.from(r.querySelectorAll(s)); }
     function escapeAttr(v){ return String(v).replace(/"/g,'&quot;'); }
     function escapeHtml(s){
       const map = {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;', "'":'&#39;'};
@@ -132,9 +106,7 @@
     }
     function slugify(s){ return String(s).normalize('NFKD').replace(/[^\w\s-]/g,'').trim().replace(/[\s_]+/g,'-').replace(/-+/g,'-').toLowerCase(); }
 
-    /* =========================
-       IMDb / OMDb Auto-Fetch
-       ========================= */
+    /* ========= OMDb fetch (fills actors too) ========= */
     async function fetchIMDbData(imdbUrl, row) {
       try {
         const match = imdbUrl && imdbUrl.match(/tt\d+/);
@@ -143,21 +115,22 @@
         const apiKey = getOmdbKey();
         if (!apiKey) { alert("OMDb API key is not set. In Editors → OMDb Settings, save your key first."); return; }
 
-        const res = await fetch(`https://www.omdbapi.com/?i=${imdbID}&apikey=${apiKey}`);
+        const res = await fetch(`https://www.omdbapi.com/?i=${imdbID}&plot=full&apikey=${apiKey}`);
         const data = await res.json();
         if (data.Response === "False") { alert("OMDb error: " + data.Error); return; }
 
-        const q = sel => row.querySelector(sel);
+        const g = sel => row.querySelector(sel);
         const cleanMin = v => (typeof v === 'string' && v.endsWith(' min')) ? v.replace(' min','') : v;
 
-        q('.e-title')  && (q('.e-title').value  = data.Title || '');
-        q('.e-year')   && (q('.e-year').value   = data.Year || '');
-        q('.e-dir')    && (q('.e-dir').value    = data.Director || '');
-        q('.e-run')    && (q('.e-run').value    = cleanMin(data.Runtime || ''));
-        q('.e-prod')   && (q('.e-prod').value   = data.Production || '');
-        q('.e-dist')   && (q('.e-dist').value   = data.Distributor || '');
-        q('.e-poster') && (q('.e-poster').value = data.Poster || '');
-        q('.e-syn')    && (q('.e-syn').value    = data.Plot || '');
+        g('.e-title')  && (g('.e-title').value  = data.Title || '');
+        g('.e-year')   && (g('.e-year').value   = data.Year || '');
+        g('.e-dir')    && (g('.e-dir').value    = data.Director || '');
+        g('.e-run')    && (g('.e-run').value    = cleanMin(data.Runtime || ''));
+        g('.e-prod')   && (g('.e-prod').value   = data.Production || '');
+        g('.e-dist')   && (g('.e-dist').value   = data.Distributor || '');
+        g('.e-poster') && (g('.e-poster').value = data.Poster || '');
+        g('.e-syn')    && (g('.e-syn').value    = data.Plot || '');
+        g('.e-cast')   && (g('.e-cast').value   = (data.Actors || '').split(',').map(s => s.trim()).slice(0,8).join(', '));
 
         alert(`Fetched data for: ${data.Title}`);
       } catch (err) {
@@ -166,21 +139,18 @@
       }
     }
 
-    /* =========================
-       Root render
-       ========================= */
+    /* ========= Root render ========= */
     function render(){
       const app = qs('#app');
       app.innerHTML = `
         <div class="sticky top-0 z-40 backdrop-blur bg-white/70 border-b">
           <div class="max-w-7xl mx-auto px-4 py-3 flex items-center gap-3">
-            <!-- Logo -->
             <div class="flex items-center gap-3">
               <div class="w-10 h-10 rounded bg-orange-500 grid grid-cols-2 grid-rows-2 text-white font-black place-items-center text-sm leading-none select-none">
                 <span>J</span><span>K</span><span>W</span><span>E</span>
               </div>
               <div>
-                <div class="text-lg sm:text-xl font-semibold tracking-tight">Jonathan & Karl Watch Everything</div>
+                <div class="text-lg sm:text-xl font-semibold tracking-tight">Jonathan & Karl Watch Everything: Movies and Television</div>
                 <div class="text-xs text-gray-600 -mt-0.5">watch along with us …</div>
               </div>
             </div>
@@ -191,14 +161,24 @@
             </div>
           </div>
           <div class="max-w-7xl mx-auto px-4 pb-3 flex items-center gap-2">
-            <button id="tab-movies"  class="px-3 py-2 rounded-xl border ${activeTab==='movies' ? 'bg-black text-white' : ''}">Movies</button>
-            <button id="tab-ranked"  class="px-3 py-2 rounded-xl border ${activeTab==='ranked' ? 'bg-black text-white' : ''}">Ranked Compare</button>
-            <button id="tab-podcast" class="px-3 py-2 rounded-xl border ${activeTab==='podcast'? 'bg-black text-white' : ''}">Podcast</button>
-            ${unlocked ? `<button id="tab-editor" class="px-3 py-2 rounded-xl border ${activeTab==='editor' ? 'bg-black text-white' : ''}">Editors</button>` : ''}
+            <button id="tab-movies"  class="px-3 py-2 rounded-xl border">Movies</button>
+            <button id="tab-ranked"  class="px-3 py-2 rounded-xl border">Ranked List</button>
+            <button id="tab-podcast" class="px-3 py-2 rounded-xl border">Podcast</button>
+            ${unlocked ? `<button id="tab-editor"  class="px-3 py-2 rounded-xl border">Editors</button>` : ''}
+            ${unlocked ? `<button id="tab-rankmgr" class="px-3 py-2 rounded-xl border">Edit Ranks</button>` : ''}
           </div>
         </div>
         <main class="max-w-7xl mx-auto px-4 py-6" id="main"></main>
       `;
+
+      // tab active styling
+      const setActive = () => {
+        const map = {movies:'#tab-movies', ranked:'#tab-ranked', podcast:'#tab-podcast', editor:'#tab-editor', rankmgr:'#tab-rankmgr'};
+        Object.entries(map).forEach(([k, sel])=>{
+          const btn = qs(sel); if(!btn) return;
+          if (activeTab===k) btn.classList.add('bg-black','text-white'); else btn.classList.remove('bg-black','text-white');
+        });
+      };
 
       qs('#search').addEventListener('input', e => { query = e.target.value; draw(); });
       const ub = qs('#unlock'); if (ub) ub.onclick = () => { const p = prompt('Enter password'); if (p===EDIT_PASSWORD){ unlocked=true; sessionStorage.setItem('jkwe_unlocked','1'); draw('editor'); } else { alert('Incorrect password'); } };
@@ -206,29 +186,41 @@
       qs('#tab-movies').onclick  = ()=> draw('movies');
       qs('#tab-ranked').onclick  = ()=> draw('ranked');
       qs('#tab-podcast').onclick = ()=> draw('podcast');
-      const tE = qs('#tab-editor'); if (tE) tE.onclick = ()=> draw('editor');
+      const tE = qs('#tab-editor');  if (tE) tE.onclick = ()=> draw('editor');
+      const tR = qs('#tab-rankmgr'); if (tR) tR.onclick = ()=> draw('rankmgr');
 
       draw(activeTab);
+      setActive();
+    }
+
+    function draw(tab){
+      if (tab) activeTab = tab;
+      const main = qs('#main');
+      const filtered = filterMovies(movies, query).slice().sort((a,b)=>a.title.localeCompare(b.title));
+      if (activeTab==='movies')  main.replaceChildren(viewMovies(filtered));
+      if (activeTab==='ranked')  main.replaceChildren(viewRankedList());
+      if (activeTab==='podcast') main.replaceChildren(viewPodcast());
+      if (activeTab==='editor')  main.replaceChildren(viewEditor());
+      if (activeTab==='rankmgr') main.replaceChildren(viewRankManager());
+      // refresh tab style
+      const set = () => {
+        const map = {movies:'#tab-movies', ranked:'#tab-ranked', podcast:'#tab-podcast', editor:'#tab-editor', rankmgr:'#tab-rankmgr'};
+        Object.entries(map).forEach(([k, sel])=>{
+          const btn = qs(sel); if(!btn) return;
+          if (activeTab===k) btn.classList.add('bg-black','text-white'); else btn.classList.remove('bg-black','text-white');
+        });
+      };
+      set();
     }
 
     function filterMovies(list, q){
       const s = q.trim().toLowerCase();
       if (!s) return list;
-      return list.filter(m => [m.title, String(m.year||''), m.director||'', m.producers||'', m.distributor||'']
+      return list.filter(m => [m.title, String(m.year||''), m.director||'', (m.cast||[]).join(', '), m.producers||'', m.distributor||'']
         .filter(Boolean).some(t => String(t).toLowerCase().includes(s)));
     }
 
-    function draw(tab){ if (tab) activeTab = tab; const main = qs('#main');
-      const filtered = filterMovies(movies, query).slice().sort((a,b)=>a.title.localeCompare(b.title));
-      if (activeTab==='movies')  main.replaceChildren(viewMovies(filtered));
-      if (activeTab==='ranked')  main.replaceChildren(viewRankedCompare());
-      if (activeTab==='podcast') main.replaceChildren(viewPodcast());
-      if (activeTab==='editor')  main.replaceChildren(viewEditor());
-    }
-
-    /* =========================
-       Movies grid (4 per row, bigger cards)
-       ========================= */
+    /* ========= Movies grid ========= */
     function viewMovies(list){
       const grid = document.createElement('div');
       grid.className = 'grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6';
@@ -250,11 +242,12 @@
           : caption;
 
         const s = card.querySelector('.synopsis'); s.textContent = m.synopsis || '';
-        card.querySelector('.meta-dir').textContent = 'Director: ' + (m.director || '—');
-        card.querySelector('.meta-prod').textContent = 'Producers: ' + (m.producers || '—');
-        card.querySelector('.meta-run').textContent  = 'Running time: ' + (m.runtimeMin ? (m.runtimeMin+' min') : '—');
-        card.querySelector('.meta-bud').textContent  = 'Budget: ' + (m.budget || '—');
-        card.querySelector('.meta-dist').textContent = 'Distributed by: ' + (m.distributor || '—');
+
+        // Hover meta simplified
+        card.querySelector('.meta-dir').textContent  = 'Director: ' + (m.director || '—');
+        const castTop = (m.cast && m.cast.length) ? m.cast.slice(0,4).join(', ') : '—';
+        card.querySelector('.meta-cast').textContent = 'Cast: ' + castTop;
+        card.querySelector('.meta-run').textContent  = 'Runtime: ' + (m.runtimeMin ? (m.runtimeMin+' min') : '—');
 
         const posterWrap = card.querySelector('.posterWrap');
         if (m.imdbUrl) {
@@ -266,10 +259,8 @@
       return grid;
     }
 
-    /* =========================
-       Ranked Compare (locked to J_LIST & K_LIST)
-       ========================= */
-    function viewRankedCompare(){
+    /* ========= Ranked List (names only) ========= */
+    function viewRankedList(){
       const wrap = document.createElement('div');
       wrap.className = 'grid grid-cols-1 lg:grid-cols-2 gap-6';
 
@@ -277,22 +268,18 @@
         const box = document.createElement('div');
         box.className = 'rounded-xl border p-4 bg-white';
         box.innerHTML = `<div class="font-semibold mb-3">${name}</div>`;
-
         const ol = document.createElement('ol');
         ol.className = 'space-y-2 list-decimal pl-5';
-
         ORDER.forEach((title, idx) => {
           const m = movies.find(x => (x.title || '').toLowerCase() === title.toLowerCase()) || { title };
           const topTen = (idx < 10) ? 'font-bold' : '';
           const anchor = m.imdbUrl
             ? `<a href="${m.imdbUrl}" target="_blank" rel="noopener noreferrer" class="hover:underline">${escapeHtml(m.title)}</a>`
             : escapeHtml(m.title);
-          const year = m.year ? ` <span class="text-gray-500">(${m.year})</span>` : '';
           const li = document.createElement('li');
-          li.innerHTML = `<span class="${topTen}">${anchor}${year}</span>`;
+          li.innerHTML = `<span class="${topTen}">${anchor}</span>`;
           ol.appendChild(li);
         });
-
         box.appendChild(ol);
         return box;
       }
@@ -302,15 +289,11 @@
       return wrap;
     }
 
-    /* =========================
-       Podcast tab (single clean card, wide/tall player)
-       ========================= */
+    /* ========= Podcast ========= */
     function viewPodcast(){
       const box = document.createElement('div');
       box.className = 'space-y-4';
-
       const embed = getPodcastEmbed();
-
       const frameWrap = document.createElement('div');
       frameWrap.className = 'rounded-xl border bg-white overflow-hidden';
       frameWrap.innerHTML = `
@@ -326,9 +309,7 @@
       return box;
     }
 
-    /* =========================
-       Editors tab
-       ========================= */
+    /* ========= Editors (add/edit + actors) ========= */
     function viewEditor(){
       const box = document.createElement('div');
       box.className = 'space-y-6';
@@ -357,6 +338,7 @@
           <textarea id="f-syn" class="md:col-span-2 px-3 py-2 rounded-xl border" rows="2" placeholder="Synopsis"></textarea>
           <input id="f-imdb" class="md:col-span-2 px-3 py-2 rounded-xl border" placeholder="IMDb URL (for click-through & Fetch)"/>
           <input id="f-dir"  class="px-3 py-2 rounded-xl border" placeholder="Director"/>
+          <input id="f-cast" class="md:col-span-1 px-3 py-2 rounded-xl border" placeholder="Actors (comma-separated)"/>
           <input id="f-prod" class="px-3 py-2 rounded-xl border" placeholder="Producers (comma-separated)"/>
           <input id="f-run"  class="px-3 py-2 rounded-xl border" placeholder="Running time (min)"/>
           <input id="f-bud"  class="px-3 py-2 rounded-xl border" placeholder="Budget (e.g., 80 million USD)"/>
@@ -370,7 +352,7 @@
         </div>`;
       box.appendChild(add);
 
-      // Password Manager
+      // Password
       const pw = document.createElement('div');
       pw.className = 'rounded-xl border p-4 space-y-3';
       pw.innerHTML = `
@@ -395,8 +377,7 @@
           <input id="omdb-key" class="px-3 py-2 rounded-xl border md:col-span-2" placeholder="OMDb API Key" />
           <button id="omdb-save" class="px-3 py-2 rounded-xl border bg-black text-white">Save Key</button>
         </div>
-        <div class="text-sm text-gray-600">Key is stored locally in your browser.</div>
-      `;
+        <div class="text-sm text-gray-600">Key is stored locally in your browser.</div>`;
       box.appendChild(omdb);
 
       // Podcast Settings
@@ -404,14 +385,14 @@
       pod.className = 'rounded-xl border p-4 space-y-3';
       pod.innerHTML = `
         <div class="font-semibold">Podcast Settings</div>
-        <p class="text-sm text-gray-600">Paste the Apple Podcasts <em>embed player URL</em> (from Apple Marketing Tools → Share → Embed Player). It should look like <code>https://embed.podcasts.apple.com/...</code>. Short links like <code>https://apple.co/...</code> won’t embed.</p>
+        <p class="text-sm text-gray-600">Paste the Apple Podcasts <em>embed player URL</em> (from Apple Marketing Tools → Share → Embed Player). Must start with <code>https://embed.podcasts.apple.com/</code>.</p>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
           <input id="pod-embed" class="px-3 py-2 rounded-xl border md:col-span-2" placeholder="https://embed.podcasts.apple.com/..."/>
           <button id="pod-save" class="px-3 py-2 rounded-xl border bg-black text-white">Save Embed</button>
         </div>`;
       box.appendChild(pod);
 
-      // Edit existing list
+      // Edit existing
       const editWrap = document.createElement('div');
       editWrap.className = 'rounded-xl border p-4 space-y-4';
       editWrap.innerHTML = `<div class="font-semibold">Edit Existing Movies</div>
@@ -424,10 +405,10 @@
         qs('#btn-import').onclick = ()=> qs('#file-input').click();
         qs('#btn-export').onclick = handleExport;
 
-        // Add movie fields & wires
+        // Add movie wires
         const fTitle=qs('#f-title'), fYear=qs('#f-year'), fJ=qs('#f-j'), fK=qs('#f-k'),
               fPoster=qs('#f-poster'), fSyn=qs('#f-syn'), fImdb=qs('#f-imdb'),
-              fDir=qs('#f-dir'), fProd=qs('#f-prod'), fRun=qs('#f-run'), fBud=qs('#f-bud'), fDist=qs('#f-dist'),
+              fDir=qs('#f-dir'), fCast=qs('#f-cast'), fProd=qs('#f-prod'), fRun=qs('#f-run'), fBud=qs('#f-bud'), fDist=qs('#f-dist'),
               fFile=qs('#f-file'), fUpload=qs('#f-upload'), fAdd=qs('#f-add'), fPrev=qs('#f-preview');
 
         fUpload.onclick = () => fFile.click();
@@ -448,6 +429,7 @@
             synopsis: fSyn.value.trim()||undefined,
             imdbUrl: fImdb.value.trim()||undefined,
             director: fDir.value.trim()||undefined,
+            cast: (fCast.value||'').split(',').map(s=>s.trim()).filter(Boolean),
             producers: fProd.value.trim()||undefined,
             runtimeMin: Number.isFinite(parseInt(fRun.value,10)) ? parseInt(fRun.value,10) : undefined,
             budget: fBud.value.trim()||undefined,
@@ -456,12 +438,12 @@
           };
           movies.push(entry);
           alert('Movie added.');
-          fTitle.value=fYear.value=fJ.value=fK.value=fPoster.value=fSyn.value=fImdb.value=fDir.value=fProd.value=fRun.value=fBud.value=fDist.value='';
+          [fTitle,fYear,fJ,fK,fPoster,fSyn,fImdb,fDir,fCast,fProd,fRun,fBud,fDist].forEach(el=>el.value='');
           fPrev.classList.add('hidden');
           draw('movies'); renderEditorsList();
         };
 
-        // Password update
+        // Password
         const pwCur=qs('#pw-current'), pwNew=qs('#pw-new'), pwCon=qs('#pw-confirm'), pwBtn=qs('#pw-save'), pwMsg=qs('#pw-msg');
         pwBtn.onclick = ()=>{
           if(pwCur.value !== EDIT_PASSWORD){ pwMsg.textContent = 'Current password is incorrect.'; pwMsg.className='text-sm text-red-600'; return; }
@@ -470,24 +452,24 @@
           pwMsg.textContent = 'Password updated.'; pwMsg.className='text-sm text-green-600';
         };
 
-        // OMDb save/load
+        // OMDb
         const keyInput = qs('#omdb-key'); const keyBtn = qs('#omdb-save');
         if (keyInput) keyInput.value = getOmdbKey();
         if (keyBtn) keyBtn.onclick = ()=>{ setOmdbKey(keyInput.value.trim()); alert('OMDb key saved.'); };
 
-        // Podcast save/load with simple validation
+        // Podcast embed
         const podInput = qs('#pod-embed'); const podBtn = qs('#pod-save');
         if (podInput) podInput.value = getPodcastEmbed();
         if (podBtn) podBtn.onclick = ()=>{
           const val = podInput.value.trim();
           if (val && !val.includes('embed.podcasts.apple.com')) {
-            alert('This does not look like an Apple Podcasts EMBED URL. Use Apple Marketing Tools → Share → Embed Player and copy the src URL that starts with https://embed.podcasts.apple.com/');
+            alert('Use the Apple Podcasts EMBED URL (starts with https://embed.podcasts.apple.com/).');
           }
           setPodcastEmbed(val);
           alert('Podcast embed saved.');
         };
 
-        // Render editors list
+        // Edit existing list rows (with Actors)
         function renderEditorsList(){
           const container = qs('#e-list');
           const filter = qs('#e-filter').value.trim().toLowerCase();
@@ -505,6 +487,7 @@
               <button type="button" class="fetch px-2 py-1 rounded border text-xs md:col-span-1">Fetch IMDb</button>
               <input class="e-poster px-2 py-1 rounded border md:col-span-2" value="${escapeAttr(m.poster||'')}" placeholder="Poster URL"/>
               <input class="e-dir   px-2 py-1 rounded border" value="${escapeAttr(m.director||'')}" placeholder="Director"/>
+              <input class="e-cast  px-2 py-1 rounded border md:col-span-2" value="${escapeAttr((m.cast||[]).join(', '))}" placeholder="Actors (comma-separated)"/>
               <input class="e-prod  px-2 py-1 rounded border md:col-span-2" value="${escapeAttr(m.producers||'')}" placeholder="Producers"/>
               <input class="e-run   px-2 py-1 rounded border" value="${m.runtimeMin??''}" placeholder="Runtime (min)"/>
               <input class="e-bud   px-2 py-1 rounded border" value="${escapeAttr(m.budget||'')}" placeholder="Budget"/>
@@ -523,6 +506,7 @@
               m.imdbUrl = g('.e-imdb').value.trim()||undefined;
               m.poster  = g('.e-poster').value.trim()||undefined;
               m.director= g('.e-dir').value.trim()||undefined;
+              m.cast = (g('.e-cast').value||'').split(',').map(s=>s.trim()).filter(Boolean);
               m.producers=g('.e-prod').value.trim()||undefined;
               const rn = parseInt(g('.e-run').value,10); m.runtimeMin = Number.isFinite(rn)? rn: undefined;
               m.budget = g('.e-bud').value.trim()||undefined;
@@ -536,12 +520,10 @@
               if(confirm('Delete this title?')){ movies.splice(idx,1); renderEditorsList(); draw(activeTab); }
             };
             const fetchBtn = row.querySelector('.fetch');
-            if (fetchBtn) {
-              fetchBtn.onclick = () => {
-                const url = row.querySelector('.e-imdb')?.value?.trim();
-                fetchIMDbData(url, row);
-              };
-            }
+            if (fetchBtn) fetchBtn.onclick = () => {
+              const url = row.querySelector('.e-imdb')?.value?.trim();
+              fetchIMDbData(url, row);
+            };
             container.appendChild(row);
           });
         }
@@ -552,9 +534,59 @@
       return box;
     }
 
-    /* =========================
-       Import / Export
-       ========================= */
+    /* ========= Edit Ranks (simple non-coding editor) ========= */
+    function viewRankManager(){
+      const box = document.createElement('div');
+      box.className = 'rounded-xl border p-4 bg-white';
+      box.innerHTML = `<div class="font-semibold mb-3">Edit Ranks</div>
+        <p class="text-sm text-gray-600 mb-3">Adjust Jonathan’s and Karl’s rank numbers (1 = best). Save updates the site immediately.</p>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mb-2">
+          <input id="rm-filter" class="px-3 py-2 rounded-xl border" placeholder="Filter by title…"/>
+          <div></div>
+        </div>
+        <div class="overflow-x-auto"><table class="w-full text-sm">
+          <thead class="bg-gray-50 border-b">
+            <tr>
+              <th class="text-left px-3 py-2">Title</th>
+              <th class="text-left px-3 py-2">J Rank</th>
+              <th class="text-left px-3 py-2">K Rank</th>
+              <th class="text-left px-3 py-2"></th>
+            </tr>
+          </thead>
+          <tbody id="rm-body"></tbody>
+        </table></div>`;
+      const tbody = box.querySelector('#rm-body');
+      const filterInput = box.querySelector('#rm-filter');
+
+      const renderRows = ()=>{
+        const f = (filterInput.value||'').toLowerCase();
+        tbody.innerHTML = '';
+        movies.slice().sort((a,b)=>a.title.localeCompare(b.title)).forEach((m, idx)=>{
+          if (f && !m.title.toLowerCase().includes(f)) return;
+          const tr = document.createElement('tr'); tr.className = 'border-b last:border-0';
+          tr.innerHTML = `
+            <td class="px-3 py-2">${escapeHtml(m.title)}</td>
+            <td class="px-3 py-2"><input class="rm-j px-2 py-1 rounded border w-16 tabular-nums" value="${m.ratings?.jonathan??''}" /></td>
+            <td class="px-3 py-2"><input class="rm-k px-2 py-1 rounded border w-16 tabular-nums" value="${m.ratings?.karl??''}" /></td>
+            <td class="px-3 py-2 text-right"><button class="rm-save px-3 py-1 rounded border">Save</button></td>`;
+          tr.querySelector('.rm-save').onclick = ()=>{
+            const jv = parseInt(tr.querySelector('.rm-j').value,10);
+            const kv = parseInt(tr.querySelector('.rm-k').value,10);
+            m.ratings = m.ratings || {};
+            m.ratings.jonathan = Number.isFinite(jv)? jv : undefined;
+            m.ratings.karl     = Number.isFinite(kv)? kv : undefined;
+            alert('Ranks saved.');
+            draw('rankmgr');
+          };
+          tbody.appendChild(tr);
+        });
+      };
+      filterInput.addEventListener('input', renderRows);
+      renderRows();
+      return box;
+    }
+
+    /* ========= Import / Export ========= */
     const fileInput = qs('#file-input');
     function handleExport(){
       const payload = JSON.stringify({ movies }, null, 2);
@@ -582,9 +614,15 @@
       e.target.value = '';
     });
 
-    /* =========================
-       Boot
-       ========================= */
+    /* ========= Helpers ========= */
+    function filterMovies(list, q){
+      const s = q.trim().toLowerCase();
+      if (!s) return list;
+      return list.filter(m => [m.title, String(m.year||''), m.director||'', (m.cast||[]).join(', '), m.producers||'', m.distributor||'']
+        .filter(Boolean).some(t => String(t).toLowerCase().includes(s)));
+    }
+
+    /* ========= Boot ========= */
     render();
   </script>
 </body>
