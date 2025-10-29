@@ -1,0 +1,14 @@
+[
+  {
+    "id": "streetcar-1951",
+    "title": "A Streetcar Named Desire",
+    "year": 1951,
+    "imdbUrl": "https://www.imdb.com/title/tt0044081/",
+    "poster": "https://m.media-amazon.com/images/M/XXXXXXXX.jpg",
+    "runtimeMin": 122,
+    "director": "Elia Kazan",
+    "cast": ["Vivien Leigh", "Marlon Brando", "Kim Hunter", "Karl Malden"],
+    "synopsis": "Disturbed Blanche DuBois moves in with her sister in New Orleans...",
+    "ratings": { "jonathan": 16, "karl": 23 }
+  }
+]
