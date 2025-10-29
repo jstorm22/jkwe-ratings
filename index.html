@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>JKWE · Review Guide</title>
+  <title>Jonathan & Karl Watch Everything · JKWE</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     .tabular-nums { font-variant-numeric: tabular-nums; }
@@ -14,7 +14,7 @@
   <div id="app"></div>
   <input id="file-input" type="file" accept="application/json" class="hidden" />
 
-  <!-- Movie card -->
+  <!-- Movie card template -->
   <template id="card-template">
     <div class="group rounded-xl border overflow-hidden shadow-sm hover:shadow-md transition relative bg-white">
       <!-- rank badges -->
@@ -25,7 +25,7 @@
         <img class="poster w-full h-full object-cover" alt="poster" onerror="this.style.display='none'" />
       </div>
 
-      <div class="p-3 space-y-2">
+      <div class="p-3 space-y-2 relative">
         <div class="title text-base font-semibold leading-tight"></div>
         <p class="synopsis text-sm text-gray-700 line-clamp-8"></p>
 
@@ -44,50 +44,36 @@
     </div>
   </template>
 
-  <!-- Ranked row (unused now; we render 2 lists instead) -->
-  <template id="rank-row-template">
-    <tr class="border-b last:border-none">
-      <td class="px-2 py-2">
-        <div class="flex items-center gap-2">
-          <img class="thumb w-8 h-12 object-cover rounded-md hidden" alt="poster" />
-          <div>
-            <div class="t text-sm font-medium leading-tight"></div>
-            <div class="y text-[11px] text-gray-500"></div>
-          </div>
-        </div>
-      </td>
-      <td class="px-2 py-2 tabular-nums jrank"></td>
-      <td class="px-2 py-2 tabular-nums krank"></td>
-    </tr>
-  </template>
-
   <script>
-    // ===== Password (local to browser) =====
+    /* =========================
+       Password / Settings (local)
+       ========================= */
     function getPassword(){ return localStorage.getItem('jkwe_pw') || 'sage42'; }
     function setPassword(p){ localStorage.setItem('jkwe_pw', p); }
     let EDIT_PASSWORD = getPassword();
 
-    // ===== OMDb key (local) =====
     function getOmdbKey(){ return localStorage.getItem('jkwe_omdb_key') || ''; }
     function setOmdbKey(k){ localStorage.setItem('jkwe_omdb_key', k); }
 
-    // ===== Podcast embed (local) =====
     function getPodcastEmbed(){ return localStorage.getItem('jkwe_podcast_embed') || ''; }
     function setPodcastEmbed(v){ localStorage.setItem('jkwe_podcast_embed', v); }
 
-    // ===== Jonathan & Karl lists =====
+    /* =========================
+       Canonical ranking order (from your master list)
+       ========================= */
     const J_LIST = [
       'Jurassic Park','Mandalorian – Season One','Superman (2025)','Fantastic Four: First Steps','The Northman','Sinners',
-      'Psycho','Top Gun: Maverick','Amsterdam','Kiss Of The Spider-Woman (1985)','Dahmer – Monster: The Jeffrey Dahmer Story',
+      'Psycho','Top Gun: Maverick','Amsterdam','Kiss Of The Spider-Woman','Dahmer – Monster: The Jeffrey Dahmer Story',
       'Psycho Beach Party','Under The Skin','Gone With The Wind','Carry-On','A Streetcar Named Desire',
       'The Lost World: Jurassic Park','Jurassic World: Rebirth','Jurassic World: Dominion','King Kong (1933)','The Happytime Murders',
       'Dunkirk','Jurassic Park III','Jurassic World: Fallen Kingdom','The Graduate','Some Like It Hot','Jurassic World',
       'Rebel Moon Part Two','Gran Turismo','RuPaul’s Drag Race – Season Nine','Safe House','RuPaul’s Drag Race – Season Five',
       'Rebel Moon Part One','Top Gun','Space Jam','Paul','Avatar 2: The Way Of Water','Avatar','Space Jam: A New Legacy'
     ];
+
     const K_LIST = [
       'Jurassic Park','Sinners','Superman (2025)','Fantastic Four: First Steps','The Northman','Amsterdam','Dunkirk','Psycho',
-      'Under The Skin','Space Jam','King Kong (1933)','Kiss Of The Spider-Woman (1985)','Mandalorian – Season One','Safe House',
+      'Under The Skin','Space Jam','King Kong (1933)','Kiss Of The Spider-Woman','Mandalorian – Season One','Safe House',
       'Carry-On','The Lost World: Jurassic Park','Jurassic World: Rebirth','Psycho Beach Party','Some Like It Hot','Gran Turismo',
       'RuPaul’s Drag Race – Season Nine','Jurassic Park III','A Streetcar Named Desire','The Happytime Murders',
       'Jurassic World: Dominion','Jurassic World: Fallen Kingdom','Dahmer – Monster: The Jeffrey Dahmer Story','The Graduate',
@@ -95,9 +81,9 @@
       'Avatar 2: The Way Of Water','Rebel Moon: Part One','Avatar','Gone With The Wind','Top Gun'
     ];
 
-    // Minimal IMDb links we know (add more in Editors)
-    const IMDB_MAP = new Map([
-      ['Kiss Of The Spider-Woman (1985)', 'https://www.imdb.com/title/tt0089424/'],
+    // Optional IMDb hints to speed up linking
+    const IMDB_HINTS = new Map([
+      ['Kiss Of The Spider-Woman', 'https://www.imdb.com/title/tt0089424/'],
       ['A Streetcar Named Desire', 'https://www.imdb.com/title/tt0044081/'],
       ['Some Like It Hot', 'https://www.imdb.com/title/tt0053291/'],
       ['Psycho Beach Party', 'https://www.imdb.com/title/tt0120051/'],
@@ -105,26 +91,39 @@
       ['Carry-On', 'https://www.imdb.com/title/tt21382296/']
     ]);
 
-    // Build base dataset
+    /* =========================
+       Build initial dataset from lists
+       ========================= */
     const TITLES = Array.from(new Set([...J_LIST, ...K_LIST]));
-    const baseMovies = TITLES.map(title => ({
+    const moviesBase = TITLES.map(title => ({
       id: slugify(title),
       title,
       year: (title.match(/\((\d{4})\)/) ? parseInt(title.match(/\((\d{4})\)/)[1],10) : undefined),
-      poster: undefined, synopsis: undefined,
-      director: undefined, producers: undefined, runtimeMin: undefined,
-      budget: undefined, distributor: undefined,
-      imdbUrl: IMDB_MAP.get(title),
-      ratings: { jonathan: J_LIST.indexOf(title)+1, karl: K_LIST.indexOf(title)+1 }
+      poster: undefined,
+      synopsis: undefined,
+      director: undefined,
+      producers: undefined,
+      runtimeMin: undefined,
+      budget: undefined,
+      distributor: undefined,
+      imdbUrl: IMDB_HINTS.get(title),
+      ratings: {
+        jonathan: J_LIST.indexOf(title) >= 0 ? (J_LIST.indexOf(title)+1) : undefined,
+        karl:      K_LIST.indexOf(title) >= 0 ? (K_LIST.indexOf(title)+1) : undefined
+      }
     }));
 
-    // ===== App state =====
+    /* =========================
+       App state
+       ========================= */
     let unlocked = sessionStorage.getItem('jkwe_unlocked') === '1';
     let activeTab = 'movies';   // movies | ranked | podcast | editor
     let query = '';
-    let movies = baseMovies;
+    let movies = moviesBase;
 
-    // ===== Utils =====
+    /* =========================
+       Utilities
+       ========================= */
     function qs(s, r=document){ return r.querySelector(s); }
     function escapeAttr(v){ return String(v).replace(/"/g,'&quot;'); }
     function escapeHtml(s){
@@ -133,7 +132,9 @@
     }
     function slugify(s){ return String(s).normalize('NFKD').replace(/[^\w\s-]/g,'').trim().replace(/[\s_]+/g,'-').replace(/-+/g,'-').toLowerCase(); }
 
-    // ===== IMDb / OMDb Auto-Fetch =====
+    /* =========================
+       IMDb / OMDb Auto-Fetch
+       ========================= */
     async function fetchIMDbData(imdbUrl, row) {
       try {
         const match = imdbUrl && imdbUrl.match(/tt\d+/);
@@ -165,13 +166,25 @@
       }
     }
 
-    // ===== Render root UI =====
+    /* =========================
+       Root render
+       ========================= */
     function render(){
       const app = qs('#app');
       app.innerHTML = `
         <div class="sticky top-0 z-40 backdrop-blur bg-white/70 border-b">
           <div class="max-w-7xl mx-auto px-4 py-3 flex items-center gap-3">
-            <div class="text-xl font-semibold tracking-tight">JKWE · Review Guide</div>
+            <!-- Logo -->
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded bg-orange-500 grid grid-cols-2 grid-rows-2 text-white font-black place-items-center text-sm leading-none select-none">
+                <span>J</span><span>K</span><span>W</span><span>E</span>
+              </div>
+              <div>
+                <div class="text-lg sm:text-xl font-semibold tracking-tight">Jonathan & Karl Watch Everything</div>
+                <div class="text-xs text-gray-600 -mt-0.5">watch along with us …</div>
+              </div>
+            </div>
+
             <div class="ml-auto flex items-center gap-2">
               <input id="search" placeholder="Search title…" value="${escapeAttr(query)}" class="px-3 py-2 rounded-xl border w-64 focus:outline-none focus:ring" />
               ${unlocked ? '<button id="lock" class="px-3 py-2 rounded-xl border">🔓 Lock</button>' : '<button id="unlock" class="px-3 py-2 rounded-xl border">🔒 Unlock</button>'}
@@ -213,7 +226,9 @@
       if (activeTab==='editor')  main.replaceChildren(viewEditor());
     }
 
-    // ===== Movies grid (bigger cards, 4 per row) =====
+    /* =========================
+       Movies grid (4 per row, bigger cards)
+       ========================= */
     function viewMovies(list){
       const grid = document.createElement('div');
       grid.className = 'grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6';
@@ -251,72 +266,69 @@
       return grid;
     }
 
-    // ===== Ranked Compare: two side-by-side ordered lists =====
+    /* =========================
+       Ranked Compare (locked to J_LIST & K_LIST)
+       ========================= */
     function viewRankedCompare(){
       const wrap = document.createElement('div');
       wrap.className = 'grid grid-cols-1 lg:grid-cols-2 gap-6';
 
-      // helper to render one list
-      function renderList(who){
+      function renderList(name, ORDER){
         const box = document.createElement('div');
         box.className = 'rounded-xl border p-4 bg-white';
-        const heading = who==='jonathan' ? 'Jonathan’s Rankings' : 'Karl’s Rankings';
-        box.innerHTML = `<div class="font-semibold mb-3">${heading}</div>`;
-
-        // sort by that person’s rank ASC
-        const arr = movies.slice().filter(m => Number.isFinite(m.ratings?.[who]))
-          .sort((a,b)=> (a.ratings[who] - b.ratings[who]));
+        box.innerHTML = `<div class="font-semibold mb-3">${name}</div>`;
 
         const ol = document.createElement('ol');
         ol.className = 'space-y-2 list-decimal pl-5';
-        arr.forEach(m => {
-          const li = document.createElement('li');
-          const rank = m.ratings[who];
-          const bold = rank <= 10 ? 'font-bold' : '';
-          const year = m.year ? ` <span class="text-gray-500">(${m.year})</span>` : '';
+
+        ORDER.forEach((title, idx) => {
+          const m = movies.find(x => (x.title || '').toLowerCase() === title.toLowerCase()) || { title };
+          const topTen = (idx < 10) ? 'font-bold' : '';
           const anchor = m.imdbUrl
             ? `<a href="${m.imdbUrl}" target="_blank" rel="noopener noreferrer" class="hover:underline">${escapeHtml(m.title)}</a>`
             : escapeHtml(m.title);
-          li.innerHTML = `<span class="${bold}">${anchor}${year}</span>`;
+          const year = m.year ? ` <span class="text-gray-500">(${m.year})</span>` : '';
+          const li = document.createElement('li');
+          li.innerHTML = `<span class="${topTen}">${anchor}${year}</span>`;
           ol.appendChild(li);
         });
+
         box.appendChild(ol);
         return box;
       }
 
-      wrap.appendChild(renderList('jonathan'));
-      wrap.appendChild(renderList('karl'));
+      wrap.appendChild(renderList('Jonathan’s Rankings', J_LIST));
+      wrap.appendChild(renderList('Karl’s Rankings', K_LIST));
       return wrap;
     }
 
-    // ===== Podcast tab (Apple Podcasts embed) =====
+    /* =========================
+       Podcast tab (single clean card, wide/tall player)
+       ========================= */
     function viewPodcast(){
       const box = document.createElement('div');
       box.className = 'space-y-4';
+
       const embed = getPodcastEmbed();
 
-      const intro = document.createElement('div');
-      intro.className = 'rounded-xl border p-4';
-      intro.innerHTML = `<div class="font-semibold mb-1">Listen to the Podcast</div>
-        <p class="text-sm text-gray-600">Paste the Apple Podcasts <em>embed URL</em> in Editors → Podcast Settings. You can get it from Apple’s Marketing Tools (Share → Embed Player).</p>`;
-      box.appendChild(intro);
-
       const frameWrap = document.createElement('div');
-      frameWrap.className = 'rounded-xl border overflow-hidden bg-white';
-      if (embed) {
-        frameWrap.innerHTML = `
-          <iframe allow="autoplay *; encrypted-media *; fullscreen *; clipboard-write"
-                  frameborder="0" height="450" style="width:100%;max-width:900px;display:block;margin:0 auto"
-                  sandbox="allow-forms allow-popups allow-same-origin allow-scripts allow-storage-access-by-user-activation allow-top-navigation-by-user-activation"
-                  src="${escapeAttr(embed)}"></iframe>`;
-      } else {
-        frameWrap.innerHTML = `<div class="p-6 text-sm text-gray-600">No embed set yet. Ask an editor to add it in <strong>Editors → Podcast Settings</strong>.</div>`;
-      }
+      frameWrap.className = 'rounded-xl border bg-white overflow-hidden';
+      frameWrap.innerHTML = `
+        <div class="px-4 pt-4 pb-2 font-semibold">Listen to our podcast</div>
+        ${embed
+          ? `<iframe allow="autoplay *; encrypted-media *; fullscreen *; clipboard-write"
+                    frameborder="0" height="520" style="width:100%;display:block"
+                    sandbox="allow-forms allow-popups allow-same-origin allow-scripts allow-storage-access-by-user-activation allow-top-navigation-by-user-activation"
+                    src="${escapeAttr(embed)}"></iframe>`
+          : `<div class="px-4 pb-4 text-sm text-gray-600">No embed set. In <strong>Editors → Podcast Settings</strong>, paste the Apple Podcasts <em>embed</em> URL (from Marketing Tools → Share → Embed Player).</div>`}
+      `;
       box.appendChild(frameWrap);
       return box;
     }
 
-    // ===== Editor tab =====
+    /* =========================
+       Editors tab
+       ========================= */
     function viewEditor(){
       const box = document.createElement('div');
       box.className = 'space-y-6';
@@ -325,7 +337,6 @@
       const ie = document.createElement('div');
       ie.className = 'rounded-xl border p-4';
       ie.innerHTML = `<div class="font-semibold mb-2">Data Management</div>
-        <p class="text-sm text-gray-600 mb-3">Import or export JSON, add new titles, edit any field, and manage your password.</p>
         <div class="flex items-center gap-2 mb-2">
           <button id="btn-import" class="px-3 py-2 rounded-xl border">Movie Import</button>
           <button id="btn-export" class="px-3 py-2 rounded-xl border">Movie Export</button>
@@ -393,14 +404,14 @@
       pod.className = 'rounded-xl border p-4 space-y-3';
       pod.innerHTML = `
         <div class="font-semibold">Podcast Settings</div>
-        <p class="text-sm text-gray-600">Paste the Apple Podcasts <em>embed player URL</em> (from Apple Marketing Tools → Share → Embed Player). It usually looks like <code>https://embed.podcasts.apple.com/...</code></p>
+        <p class="text-sm text-gray-600">Paste the Apple Podcasts <em>embed player URL</em> (from Apple Marketing Tools → Share → Embed Player). It should look like <code>https://embed.podcasts.apple.com/...</code>. Short links like <code>https://apple.co/...</code> won’t embed.</p>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
           <input id="pod-embed" class="px-3 py-2 rounded-xl border md:col-span-2" placeholder="https://embed.podcasts.apple.com/..."/>
           <button id="pod-save" class="px-3 py-2 rounded-xl border bg-black text-white">Save Embed</button>
         </div>`;
       box.appendChild(pod);
 
-      // Edit existing
+      // Edit existing list
       const editWrap = document.createElement('div');
       editWrap.className = 'rounded-xl border p-4 space-y-4';
       editWrap.innerHTML = `<div class="font-semibold">Edit Existing Movies</div>
@@ -413,7 +424,7 @@
         qs('#btn-import').onclick = ()=> qs('#file-input').click();
         qs('#btn-export').onclick = handleExport;
 
-        // Add movie wires
+        // Add movie fields & wires
         const fTitle=qs('#f-title'), fYear=qs('#f-year'), fJ=qs('#f-j'), fK=qs('#f-k'),
               fPoster=qs('#f-poster'), fSyn=qs('#f-syn'), fImdb=qs('#f-imdb'),
               fDir=qs('#f-dir'), fProd=qs('#f-prod'), fRun=qs('#f-run'), fBud=qs('#f-bud'), fDist=qs('#f-dist'),
@@ -450,7 +461,7 @@
           draw('movies'); renderEditorsList();
         };
 
-        // Password change
+        // Password update
         const pwCur=qs('#pw-current'), pwNew=qs('#pw-new'), pwCon=qs('#pw-confirm'), pwBtn=qs('#pw-save'), pwMsg=qs('#pw-msg');
         pwBtn.onclick = ()=>{
           if(pwCur.value !== EDIT_PASSWORD){ pwMsg.textContent = 'Current password is incorrect.'; pwMsg.className='text-sm text-red-600'; return; }
@@ -464,12 +475,19 @@
         if (keyInput) keyInput.value = getOmdbKey();
         if (keyBtn) keyBtn.onclick = ()=>{ setOmdbKey(keyInput.value.trim()); alert('OMDb key saved.'); };
 
-        // Podcast save/load
+        // Podcast save/load with simple validation
         const podInput = qs('#pod-embed'); const podBtn = qs('#pod-save');
         if (podInput) podInput.value = getPodcastEmbed();
-        if (podBtn) podBtn.onclick = ()=>{ setPodcastEmbed(podInput.value.trim()); alert('Podcast embed saved.'); };
+        if (podBtn) podBtn.onclick = ()=>{
+          const val = podInput.value.trim();
+          if (val && !val.includes('embed.podcasts.apple.com')) {
+            alert('This does not look like an Apple Podcasts EMBED URL. Use Apple Marketing Tools → Share → Embed Player and copy the src URL that starts with https://embed.podcasts.apple.com/');
+          }
+          setPodcastEmbed(val);
+          alert('Podcast embed saved.');
+        };
 
-        // Editors list (inline edit)
+        // Render editors list
         function renderEditorsList(){
           const container = qs('#e-list');
           const filter = qs('#e-filter').value.trim().toLowerCase();
@@ -534,7 +552,9 @@
       return box;
     }
 
-    // ===== Import / Export =====
+    /* =========================
+       Import / Export
+       ========================= */
     const fileInput = qs('#file-input');
     function handleExport(){
       const payload = JSON.stringify({ movies }, null, 2);
@@ -562,7 +582,9 @@
       e.target.value = '';
     });
 
-    // ===== Boot =====
+    /* =========================
+       Boot
+       ========================= */
     render();
   </script>
 </body>
