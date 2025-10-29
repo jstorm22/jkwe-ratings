@@ -22,7 +22,7 @@
         <img class="poster w-full h-full object-cover" alt="poster" onerror="this.style.display='none'" />
       </div>
       <div class="p-3 space-y-1">
-        <div class="title text-base font-semibold leading-tight"></div>
+        <div class="title text-sm font-semibold leading-tight"></div>
         <p class="synopsis text-xs text-gray-700 line-clamp-4"></p>
         <div class="hovercard absolute inset-0 bg-black/70 text-white text-xs p-3 flex flex-col gap-1 pointer-events-none opacity-0 group-hover:opacity-100 transition">
           <div class="mt-auto space-y-1">
@@ -56,119 +56,54 @@
   </template>
 
   <script>
-    // ===== Password (stored in localStorage under 'jkwe_pw') =====
+    // ===== Password (local to browser) =====
     function getPassword(){ return localStorage.getItem('jkwe_pw') || 'sage42'; }
     function setPassword(p){ localStorage.setItem('jkwe_pw', p); }
     let EDIT_PASSWORD = getPassword();
 
+    // ===== OMDb key (local to browser) =====
+    function getOmdbKey(){ return localStorage.getItem('jkwe_omdb_key') || ''; }
+    function setOmdbKey(k){ localStorage.setItem('jkwe_omdb_key', k); }
+
     // ===== Jonathan & Karl lists (39 total) =====
     const J_LIST = [
-      'Jurassic Park',
-      'Mandalorian – Season One',
-      'Superman (2025)',
-      'Fantastic Four: First Steps',
-      'The Northman',
-      'Sinners',
-      'Psycho',
-      'Top Gun: Maverick',
-      'Amsterdam',
-      'Kiss Of The Spider-Woman (1985)',
-      'Dahmer – Monster: The Jeffrey Dahmer Story',
-      'Psycho Beach Party',
-      'Under The Skin',
-      'Gone With The Wind',
-      'Carry-On',
-      'A Streetcar Named Desire',
-      'The Lost World: Jurassic Park',
-      'Jurassic World: Rebirth',
-      'Jurassic World: Dominion',
-      'King Kong (1933)',
-      'The Happytime Murders',
-      'Dunkirk',
-      'Jurassic Park III',
-      'Jurassic World: Fallen Kingdom',
-      'The Graduate',
-      'Some Like It Hot',
-      'Jurassic World',
-      'Rebel Moon Part Two',
-      'Gran Turismo',
-      'RuPaul’s Drag Race – Season Nine',
-      'Safe House',
-      'RuPaul’s Drag Race – Season Five',
-      'Rebel Moon Part One',
-      'Top Gun',
-      'Space Jam',
-      'Paul',
-      'Avatar 2: The Way Of Water',
-      'Avatar',
-      'Space Jam: A New Legacy'
+      'Jurassic Park','Mandalorian – Season One','Superman (2025)','Fantastic Four: First Steps','The Northman','Sinners',
+      'Psycho','Top Gun: Maverick','Amsterdam','Kiss Of The Spider-Woman (1985)','Dahmer – Monster: The Jeffrey Dahmer Story',
+      'Psycho Beach Party','Under The Skin','Gone With The Wind','Carry-On','A Streetcar Named Desire',
+      'The Lost World: Jurassic Park','Jurassic World: Rebirth','Jurassic World: Dominion','King Kong (1933)','The Happytime Murders',
+      'Dunkirk','Jurassic Park III','Jurassic World: Fallen Kingdom','The Graduate','Some Like It Hot','Jurassic World',
+      'Rebel Moon Part Two','Gran Turismo','RuPaul’s Drag Race – Season Nine','Safe House','RuPaul’s Drag Race – Season Five',
+      'Rebel Moon Part One','Top Gun','Space Jam','Paul','Avatar 2: The Way Of Water','Avatar','Space Jam: A New Legacy'
     ];
-
     const K_LIST = [
-      'Jurassic Park',
-      'Sinners',
-      'Superman (2025)',
-      'Fantastic Four: First Steps',
-      'The Northman',
-      'Amsterdam',
-      'Dunkirk',
-      'Psycho',
-      'Under The Skin',
-      'Space Jam',
-      'King Kong (1933)',
-      'Kiss Of The Spider-Woman (1985)',
-      'Mandalorian – Season One',
-      'Safe House',
-      'Carry-On',
-      'The Lost World: Jurassic Park',
-      'Jurassic World: Rebirth',
-      'Psycho Beach Party',
-      'Some Like It Hot',
-      'Gran Turismo',
-      'RuPaul’s Drag Race – Season Nine',
-      'Jurassic Park III',
-      'A Streetcar Named Desire',
-      'The Happytime Murders',
-      'Jurassic World: Dominion',
-      'Jurassic World: Fallen Kingdom',
-      'Dahmer – Monster: The Jeffrey Dahmer Story',
-      'The Graduate',
-      'Paul',
-      'Jurassic World',
-      'Rebel Moon: Part Two',
-      'Top Gun: Maverick',
-      'Space Jam: A New Legacy',
-      'RuPaul’s Drag Race – Season Five',
-      'Avatar 2: The Way Of Water',
-      'Rebel Moon: Part One',
-      'Avatar',
-      'Gone With The Wind',
-      'Top Gun'
+      'Jurassic Park','Sinners','Superman (2025)','Fantastic Four: First Steps','The Northman','Amsterdam','Dunkirk','Psycho',
+      'Under The Skin','Space Jam','King Kong (1933)','Kiss Of The Spider-Woman (1985)','Mandalorian – Season One','Safe House',
+      'Carry-On','The Lost World: Jurassic Park','Jurassic World: Rebirth','Psycho Beach Party','Some Like It Hot','Gran Turismo',
+      'RuPaul’s Drag Race – Season Nine','Jurassic Park III','A Streetcar Named Desire','The Happytime Murders',
+      'Jurassic World: Dominion','Jurassic World: Fallen Kingdom','Dahmer – Monster: The Jeffrey Dahmer Story','The Graduate',
+      'Paul','Jurassic World','Rebel Moon: Part Two','Top Gun: Maverick','Space Jam: A New Legacy','RuPaul’s Drag Race – Season Five',
+      'Avatar 2: The Way Of Water','Rebel Moon: Part One','Avatar','Gone With The Wind','Top Gun'
     ];
 
-    // Minimal IMDb links we have so far (add the rest in Editors)
+    // Minimal known IMDb links (you can add the rest in Editors)
     const IMDB_MAP = new Map([
-      ['Kiss Of The Spider-Woman (1985)', 'https://www.imdb.com/title/tt0089424/?ref_=fn_all_ttl_2'],
-      ['A Streetcar Named Desire', 'https://www.imdb.com/title/tt0044081/?ref_=fn_all_ttl_1'],
-      ['Some Like It Hot', 'https://www.imdb.com/title/tt0053291/?ref_=fn_all_ttl_1'],
-      ['Psycho Beach Party', 'https://www.imdb.com/title/tt0120051/?ref_=fn_all_ttl_3'],
-      ['The Happytime Murders', 'https://www.imdb.com/title/tt1308728/?ref_=nv_sr_srsg_0_tt_8_nm_0_in_0_q_the%2520happytime'],
-      ['Carry-On', 'https://www.imdb.com/title/tt21382296/?ref_=nv_sr_srsg_0_tt_8_nm_0_in_0_q_carryon']
+      ['Kiss Of The Spider-Woman (1985)', 'https://www.imdb.com/title/tt0089424/'],
+      ['A Streetcar Named Desire', 'https://www.imdb.com/title/tt0044081/'],
+      ['Some Like It Hot', 'https://www.imdb.com/title/tt0053291/'],
+      ['Psycho Beach Party', 'https://www.imdb.com/title/tt0120051/'],
+      ['The Happytime Murders', 'https://www.imdb.com/title/tt1308728/'],
+      ['Carry-On', 'https://www.imdb.com/title/tt21382296/']
     ]);
 
-    // Build base dataset
+    // Build base dataset (alphabetical later for display)
     const TITLES = Array.from(new Set([...J_LIST, ...K_LIST]));
     const baseMovies = TITLES.map(title => ({
       id: slugify(title),
       title,
       year: (title.match(/\((\d{4})\)/) ? parseInt(title.match(/\((\d{4})\)/)[1],10) : undefined),
-      poster: undefined,
-      synopsis: undefined,
-      director: undefined,
-      producers: undefined,
-      runtimeMin: undefined,
-      budget: undefined,
-      distributor: undefined,
+      poster: undefined, synopsis: undefined,
+      director: undefined, producers: undefined, runtimeMin: undefined,
+      budget: undefined, distributor: undefined,
       imdbUrl: IMDB_MAP.get(title),
       ratings: {
         jonathan: J_LIST.indexOf(title) + 1,
@@ -176,22 +111,55 @@
       }
     }));
 
-    // App state
+    // ===== App state =====
     let unlocked = sessionStorage.getItem('jkwe_unlocked') === '1';
     let activeTab = 'posters';
     let query = '';
     let movies = baseMovies;
 
-    // Utils
+    // ===== Utils =====
     function qs(s, r=document){ return r.querySelector(s); }
     function escapeAttr(v){ return String(v).replace(/"/g,'&quot;'); }
-    function slugify(s){ return String(s).normalize('NFKD').replace(/[^\w\s-]/g,'').trim().replace(/[\s_]+/g,'-').replace(/-+/g,'-').toLowerCase(); }
     function escapeHtml(s){
       const map = {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;', "'":'&#39;'};
       return String(s).replace(/[&<>"']/g, ch => map[ch]);
     }
+    function slugify(s){ return String(s).normalize('NFKD').replace(/[^\w\s-]/g,'').trim().replace(/[\s_]+/g,'-').replace(/-+/g,'-').toLowerCase(); }
 
-    // Render
+    // ===== IMDb / OMDb Auto-Fetch =====
+    async function fetchIMDbData(imdbUrl, row) {
+      try {
+        const match = imdbUrl && imdbUrl.match(/tt\d+/);
+        if (!match) { alert("Invalid IMDb link. It must contain an id like tt0044081."); return; }
+        const imdbID = match[0];
+        const apiKey = getOmdbKey();
+        if (!apiKey) { alert("OMDb API key is not set. In Editors → OMDb Settings, save your key first."); return; }
+
+        const res = await fetch(`https://www.omdbapi.com/?i=${imdbID}&apikey=${apiKey}`);
+        const data = await res.json();
+        if (data.Response === "False") { alert("OMDb error: " + data.Error); return; }
+
+        // Fill inputs inside this row
+        const q = sel => row.querySelector(sel);
+        const cleanMin = v => (typeof v === 'string' && v.endsWith(' min')) ? v.replace(' min','') : v;
+
+        q('.e-title')  && (q('.e-title').value  = data.Title || '');
+        q('.e-year')   && (q('.e-year').value   = data.Year || '');
+        q('.e-dir')    && (q('.e-dir').value    = data.Director || '');
+        q('.e-run')    && (q('.e-run').value    = cleanMin(data.Runtime || ''));
+        q('.e-prod')   && (q('.e-prod').value   = data.Production || '');
+        q('.e-dist')   && (q('.e-dist').value   = data.Distributor || '');
+        q('.e-poster') && (q('.e-poster').value = data.Poster || '');
+        q('.e-syn')    && (q('.e-syn').value    = data.Plot || '');
+
+        alert(`Fetched data for: ${data.Title}`);
+      } catch (err) {
+        console.error(err);
+        alert("Error fetching from OMDb.");
+      }
+    }
+
+    // ===== Render root UI =====
     function render(){
       const app = qs('#app');
       app.innerHTML = `
@@ -230,7 +198,7 @@
     }
 
     function draw(tab){ if (tab) activeTab = tab; const main = qs('#main');
-      const filtered = filterMovies(movies, query).slice().sort((a,b)=>a.title.localeCompare(b.title)); // alphabetical by default
+      const filtered = filterMovies(movies, query).slice().sort((a,b)=>a.title.localeCompare(b.title)); // alphabetical
       if (activeTab==='posters') main.replaceChildren(viewPosters(filtered));
       if (activeTab==='ranked')  main.replaceChildren(viewRanked(filtered));
       if (activeTab==='editor')  main.replaceChildren(viewEditor());
@@ -262,13 +230,11 @@
         card.querySelector('.meta-bud').textContent  = 'Budget: ' + (m.budget || '—');
         card.querySelector('.meta-dist').textContent = 'Distributed by: ' + (m.distributor || '—');
 
-        // poster click → IMDb
         const posterWrap = card.querySelector('.posterWrap');
         if (m.imdbUrl) {
           posterWrap.style.cursor = 'pointer';
           posterWrap.addEventListener('click', () => window.open(m.imdbUrl, '_blank', 'noopener'));
         }
-
         grid.appendChild(card);
       });
       return grid;
@@ -367,6 +333,19 @@
         </div>`;
       box.appendChild(pw);
 
+      // OMDb Settings
+      const omdb = document.createElement('div');
+      omdb.className = 'rounded-xl border p-4 space-y-3';
+      omdb.innerHTML = `
+        <div class="font-semibold">OMDb Settings</div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <input id="omdb-key" class="px-3 py-2 rounded-xl border md:col-span-2" placeholder="OMDb API Key" />
+          <button id="omdb-save" class="px-3 py-2 rounded-xl border bg-black text-white">Save Key</button>
+        </div>
+        <div class="text-sm text-gray-600">Key is stored locally in your browser.</div>
+      `;
+      box.appendChild(omdb);
+
       // Edit existing
       const editWrap = document.createElement('div');
       editWrap.className = 'rounded-xl border p-4 space-y-4';
@@ -425,6 +404,11 @@
           pwMsg.textContent = 'Password updated.'; pwMsg.className='text-sm text-green-600';
         };
 
+        // OMDb save/load
+        const keyInput = qs('#omdb-key'); const keyBtn = qs('#omdb-save');
+        if (keyInput) keyInput.value = getOmdbKey();
+        if (keyBtn) keyBtn.onclick = ()=>{ setOmdbKey(keyInput.value.trim()); alert('OMDb key saved.'); };
+
         // Editors list (inline edit)
         function renderEditorsList(){
           const container = qs('#e-list');
@@ -433,13 +417,14 @@
           movies.slice().sort((a,b)=>a.title.localeCompare(b.title)).forEach((m, idx)=>{
             if(filter && !m.title.toLowerCase().includes(filter)) return;
             const row = document.createElement('div');
-            row.className = 'rounded-lg border p-3 grid grid-cols-1 md:grid-cols-6 gap-2 items-start';
+            row.className = 'rounded-lg border p-3 grid grid-cols-1 md:grid-cols-6 gap-2 items-start movie-row';
             row.innerHTML = `
               <input class="e-title px-2 py-1 rounded border md:col-span-2" value="${escapeAttr(m.title)}"/>
               <input class="e-year  px-2 py-1 rounded border" value="${m.year??''}" placeholder="Year"/>
               <input class="e-j     px-2 py-1 rounded border" value="${m.ratings?.jonathan??''}" placeholder="J Rank"/>
               <input class="e-k     px-2 py-1 rounded border" value="${m.ratings?.karl??''}" placeholder="K Rank"/>
               <input class="e-imdb  px-2 py-1 rounded border md:col-span-2" value="${escapeAttr(m.imdbUrl||'')}" placeholder="IMDb URL"/>
+              <button type="button" class="fetch px-2 py-1 rounded border text-xs md:col-span-1">Fetch IMDb</button>
               <input class="e-poster px-2 py-1 rounded border md:col-span-2" value="${escapeAttr(m.poster||'')}" placeholder="Poster URL"/>
               <input class="e-dir   px-2 py-1 rounded border" value="${escapeAttr(m.director||'')}" placeholder="Director"/>
               <input class="e-prod  px-2 py-1 rounded border md:col-span-2" value="${escapeAttr(m.producers||'')}" placeholder="Producers"/>
@@ -472,6 +457,13 @@
             row.querySelector('.del').onclick = ()=>{
               if(confirm('Delete this title?')){ movies.splice(idx,1); renderEditorsList(); draw(activeTab); }
             };
+            const fetchBtn = row.querySelector('.fetch');
+            if (fetchBtn) {
+              fetchBtn.onclick = () => {
+                const url = row.querySelector('.e-imdb')?.value?.trim();
+                fetchIMDbData(url, row);
+              };
+            }
             container.appendChild(row);
           });
         }
@@ -482,7 +474,7 @@
       return box;
     }
 
-    // Import/export (global handlers)
+    // ===== Import / Export =====
     const fileInput = qs('#file-input');
     function handleExport(){
       const payload = JSON.stringify({ movies }, null, 2);
@@ -510,7 +502,7 @@
       e.target.value = '';
     });
 
-    // Boot
+    // ===== Boot =====
     render();
   </script>
 </body>
