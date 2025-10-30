@@ -1,14 +1,79 @@
 [
-  {
-    "id": "streetcar-1951",
-    "title": "A Streetcar Named Desire",
-    "year": 1951,
-    "imdbUrl": "https://www.imdb.com/title/tt0044081/",
-    "poster": "https://m.media-amazon.com/images/M/XXXXXXXX.jpg",
-    "runtimeMin": 122,
-    "director": "Elia Kazan",
-    "cast": ["Vivien Leigh", "Marlon Brando", "Kim Hunter", "Karl Malden"],
-    "synopsis": "Disturbed Blanche DuBois moves in with her sister in New Orleans...",
-    "ratings": { "jonathan": 16, "karl": 23 }
-  }
+  { "title": "Jurassic Park", "ranks": {"jonathan":1,"karl":1}, "isSeries": false, "imdbUrl": "", "poster": "", "year": null, "director": "", "cast": [], "runtimeMin": null, "synopsis": "" },
+
+  { "title": "Mandalorian – Season One", "ranks": {"jonathan":2,"karl":13}, "isSeries": true, "imdbUrl": "", "poster": "", "year": null, "director": "", "cast": [], "runtimeMin": null, "synopsis": "" },
+
+  { "title": "Superman (2025)", "ranks": {"jonathan":3,"karl":3}, "isSeries": false, "imdbUrl": "", "poster": "", "year": 2025, "director": "", "cast": [], "runtimeMin": null, "synopsis": "" },
+
+  { "title": "Fantastic Four: First Steps", "ranks": {"jonathan":4,"karl":4}, "isSeries": false, "imdbUrl": "", "poster": "", "year": null, "director": "", "cast": [], "runtimeMin": null, "synopsis": "" },
+
+  { "title": "The Northman", "ranks": {"jonathan":5,"karl":5}, "isSeries": false, "imdbUrl": "", "poster": "", "year": 2022, "director": "", "cast": [], "runtimeMin": null, "synopsis": "" },
+
+  { "title": "Sinners", "ranks": {"jonathan":6,"karl":2}, "isSeries": false, "imdbUrl": "", "poster": "", "year": null, "director": "", "cast": [], "runtimeMin": null, "synopsis": "" },
+
+  { "title": "Psycho", "ranks": {"jonathan":7,"karl":8}, "isSeries": false, "imdbUrl": "", "poster": "", "year": 1960, "director": "", "cast": [], "runtimeMin": null, "synopsis": "" },
+
+  { "title": "Top Gun: Maverick", "ranks": {"jonathan":8,"karl":32}, "isSeries": false, "imdbUrl": "", "poster": "", "year": 2022, "director": "", "cast": [], "runtimeMin": null, "synopsis": "" },
+
+  { "title": "Amsterdam", "ranks": {"jonathan":9,"karl":6}, "isSeries": false, "imdbUrl": "", "poster": "", "year": 2022, "director": "", "cast": [], "runtimeMin": null, "synopsis": "" },
+
+  { "title": "Kiss Of The Spider-Woman", "ranks": {"jonathan":10,"karl":12}, "isSeries": false, "imdbUrl": "", "poster": "", "year": 1985, "director": "", "cast": [], "runtimeMin": null, "synopsis": "" },
+
+  { "title": "Dahmer – Monster: The Jeffrey Dahmer Story", "ranks": {"jonathan":11,"karl":27}, "isSeries": true, "imdbUrl": "", "poster": "", "year": 2022, "director": "", "cast": [], "runtimeMin": null, "synopsis": "" },
+
+  { "title": "Psycho Beach Party", "ranks": {"jonathan":12,"karl":18}, "isSeries": false, "imdbUrl": "", "poster": "", "year": 2000, "director": "", "cast": [], "runtimeMin": null, "synopsis": "" },
+
+  { "title": "Under The Skin", "ranks": {"jonathan":13,"karl":9}, "isSeries": false, "imdbUrl": "", "poster": "", "year": 2013, "director": "", "cast": [], "runtimeMin": null, "synopsis": "" },
+
+  { "title": "Gone With The Wind", "ranks": {"jonathan":14,"karl":38}, "isSeries": false, "imdbUrl": "", "poster": "", "year": 1939, "director": "", "cast": [], "runtimeMin": null, "synopsis": "" },
+
+  { "title": "Carry-On", "ranks": {"jonathan":15,"karl":15}, "isSeries": false, "imdbUrl": "", "poster": "", "year": 2023, "director": "", "cast": [], "runtimeMin": null, "synopsis": "" },
+
+  { "title": "A Streetcar Named Desire", "ranks": {"jonathan":16,"karl":23}, "isSeries": false, "imdbUrl": "", "poster": "", "year": 1951, "director": "", "cast": [], "runtimeMin": null, "synopsis": "" },
+
+  { "title": "The Lost World: Jurassic Park", "ranks": {"jonathan":17,"karl":16}, "isSeries": false, "imdbUrl": "", "poster": "", "year": 1997, "director": "", "cast": [], "runtimeMin": null, "synopsis": "" },
+
+  { "title": "Jurassic World: Rebirth", "ranks": {"jonathan":18,"karl":17}, "isSeries": false, "imdbUrl": "", "poster": "", "year": null, "director": "", "cast": [], "runtimeMin": null, "synopsis": "" },
+
+  { "title": "Jurassic World: Dominion", "ranks": {"jonathan":19,"karl":25}, "isSeries": false, "imdbUrl": "", "poster": "", "year": 2022, "director": "", "cast": [], "runtimeMin": null, "synopsis": "" },
+
+  { "title": "King Kong (1933)", "ranks": {"jonathan":20,"karl":11}, "isSeries": false, "imdbUrl": "", "poster": "", "year": 1933, "director": "", "cast": [], "runtimeMin": null, "synopsis": "" },
+
+  { "title": "The Happytime Murders", "ranks": {"jonathan":21,"karl":24}, "isSeries": false, "imdbUrl": "", "poster": "", "year": 2018, "director": "", "cast": [], "runtimeMin": null, "synopsis": "" },
+
+  { "title": "Dunkirk", "ranks": {"jonathan":22,"karl":7}, "isSeries": false, "imdbUrl": "", "poster": "", "year": 2017, "director": "", "cast": [], "runtimeMin": null, "synopsis": "" },
+
+  { "title": "Jurassic Park III", "ranks": {"jonathan":23,"karl":22}, "isSeries": false, "imdbUrl": "", "poster": "", "year": 2001, "director": "", "cast": [], "runtimeMin": null, "synopsis": "" },
+
+  { "title": "Jurassic World: Fallen Kingdom", "ranks": {"jonathan":24,"karl":26}, "isSeries": false, "imdbUrl": "", "poster": "", "year": 2018, "director": "", "cast": [], "runtimeMin": null, "synopsis": "" },
+
+  { "title": "The Graduate", "ranks": {"jonathan":25,"karl":28}, "isSeries": false, "imdbUrl": "", "poster": "", "year": 1967, "director": "", "cast": [], "runtimeMin": null, "synopsis": "" },
+
+  { "title": "Some Like It Hot", "ranks": {"jonathan":26,"karl":19}, "isSeries": false, "imdbUrl": "", "poster": "", "year": 1959, "director": "", "cast": [], "runtimeMin": null, "synopsis": "" },
+
+  { "title": "Jurassic World", "ranks": {"jonathan":27,"karl":30}, "isSeries": false, "imdbUrl": "", "poster": "", "year": 2015, "director": "", "cast": [], "runtimeMin": null, "synopsis": "" },
+
+  { "title": "Rebel Moon: Part Two", "ranks": {"jonathan":28,"karl":31}, "isSeries": false, "imdbUrl": "", "poster": "", "year": 2024, "director": "", "cast": [], "runtimeMin": null, "synopsis": "" },
+
+  { "title": "Gran Turismo", "ranks": {"jonathan":29,"karl":20}, "isSeries": false, "imdbUrl": "", "poster": "", "year": 2023, "director": "", "cast": [], "runtimeMin": null, "synopsis": "" },
+
+  { "title": "RuPaul’s Drag Race – Season Nine", "ranks": {"jonathan":30,"karl":21}, "isSeries": true, "imdbUrl": "", "poster": "", "year": 2017, "director": "", "cast": [], "runtimeMin": null, "synopsis": "" },
+
+  { "title": "Safe House", "ranks": {"jonathan":31,"karl":14}, "isSeries": false, "imdbUrl": "", "poster": "", "year": 2012, "director": "", "cast": [], "runtimeMin": null, "synopsis": "" },
+
+  { "title": "RuPaul’s Drag Race – Season Five", "ranks": {"jonathan":32,"karl":34}, "isSeries": true, "imdbUrl": "", "poster": "", "year": 2013, "director": "", "cast": [], "runtimeMin": null, "synopsis": "" },
+
+  { "title": "Rebel Moon: Part One", "ranks": {"jonathan":33,"karl":36}, "isSeries": false, "imdbUrl": "", "poster": "", "year": 2023, "director": "", "cast": [], "runtimeMin": null, "synopsis": "" },
+
+  { "title": "Top Gun", "ranks": {"jonathan":34,"karl":39}, "isSeries": false, "imdbUrl": "", "poster": "", "year": 1986, "director": "", "cast": [], "runtimeMin": null, "synopsis": "" },
+
+  { "title": "Space Jam", "ranks": {"jonathan":35,"karl":10}, "isSeries": false, "imdbUrl": "", "poster": "", "year": 1996, "director": "", "cast": [], "runtimeMin": null, "synopsis": "" },
+
+  { "title": "Paul", "ranks": {"jonathan":36,"karl":29}, "isSeries": false, "imdbUrl": "", "poster": "", "year": 2011, "director": "", "cast": [], "runtimeMin": null, "synopsis": "" },
+
+  { "title": "Avatar 2: The Way Of Water", "ranks": {"jonathan":37,"karl":35}, "isSeries": false, "imdbUrl": "", "poster": "", "year": 2022, "director": "", "cast": [], "runtimeMin": null, "synopsis": "" },
+
+  { "title": "Avatar", "ranks": {"jonathan":38,"karl":37}, "isSeries": false, "imdbUrl": "", "poster": "", "year": 2009, "director": "", "cast": [], "runtimeMin": null, "synopsis": "" },
+
+  { "title": "Space Jam: A New Legacy", "ranks": {"jonathan":39,"karl":33}, "isSeries": false, "imdbUrl": "", "poster": "", "year": 2021, "director": "", "cast": [], "runtimeMin": null, "synopsis": "" }
 ]
