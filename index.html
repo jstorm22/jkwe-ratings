@@ -1,492 +1,488 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Jonathan & Karl Watch Everything: Movies and Television</title>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>JKWE · Jonathan & Karl Watch Everything</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    .tabular-nums { font-variant-numeric: tabular-nums; }
-    .line-clamp-6 { display:-webkit-box; -webkit-line-clamp:6; -webkit-box-orient:vertical; overflow:hidden; }
-    .badge { font-size:10px; padding:2px 6px; border-radius:999px; background:rgba(0,0,0,.8); color:#fff; }
-    .badge-light { background:rgba(0,0,0,.6); }
-    .poster-skeleton { background:linear-gradient(90deg,#f3f4f6 25%,#e5e7eb 37%,#f3f4f6 63%); background-size:400% 100%; animation:shimmer 1.4s ease infinite; }
-    @keyframes shimmer { 0% {background-position:100% 0} 100% {background-position:-100% 0} }
+    .tabular-nums{font-variant-numeric:tabular-nums}
+    .line-clamp-4{display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden}
+    .shadow-card{box-shadow:0 6px 24px rgba(0,0,0,.07),0 2px 8px rgba(0,0,0,.06)}
+    .grid-autofill{grid-template-columns:repeat(1,minmax(0,1fr))}
+    @media (min-width:640px){.grid-autofill{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media (min-width:1024px){.grid-autofill{grid-template-columns:repeat(3,minmax(0,1fr))}}
+    @media (min-width:1280px){.grid-autofill{grid-template-columns:repeat(4,minmax(0,1fr))}}
   </style>
 </head>
 <body class="min-h-screen bg-white text-gray-900">
   <div id="app"></div>
 
-  <!-- Templates -->
-  <template id="card-template">
-    <div class="group rounded-2xl border overflow-hidden shadow-sm hover:shadow-lg transition relative">
-      <div class="ranks absolute top-2 left-2 right-2 flex justify-between z-10 px-2"></div>
-      <a class="block posterWrap aspect-[2/3] overflow-hidden bg-gray-100 poster-skeleton" target="_blank" rel="noopener"></a>
+  <!-- Card template -->
+  <template id="card-tpl">
+    <div class="group relative overflow-hidden rounded-2xl border bg-white shadow-card hover:shadow-lg transition">
+      <!-- Rank badges -->
+      <div class="absolute top-2 left-2 z-10">
+        <span class="text-[10px] px-2 py-1 rounded-full bg-black/80 text-white">J#—</span>
+      </div>
+      <div class="absolute top-2 right-2 z-10">
+        <span class="text-[10px] px-2 py-1 rounded-full bg-black/80 text-white">K#—</span>
+      </div>
+
+      <!-- Poster -->
+      <div class="aspect-[2/3] overflow-hidden bg-gray-100">
+        <img class="w-full h-full object-cover group-hover:scale-[1.02] transition poster" alt="">
+      </div>
+
+      <!-- Body -->
       <div class="p-4 space-y-2">
         <div class="title text-lg font-semibold leading-tight"></div>
-        <p class="synopsis text-sm text-gray-700 line-clamp-6"></p>
-        <div class="hovermeta text-xs text-gray-500 opacity-0 group-hover:opacity-100 transition"></div>
+        <p class="synopsis text-sm text-gray-700 line-clamp-4"></p>
+        <div class="hovermeta text-xs text-gray-600 opacity-0 group-hover:opacity-100 transition"></div>
       </div>
     </div>
   </template>
 
+  <!-- Ranked row template (two-column compare is rendered with <ol>) -->
+  <template id="rank-li-tpl">
+    <li class="py-1"></li>
+  </template>
+
   <!-- Unlock overlay -->
-  <div id="unlock-overlay" class="hidden fixed inset-0 z-50 bg-black/40 items-center justify-center p-4">
+  <div id="unlock" class="hidden fixed inset-0 z-50 bg-black/40 items-center justify-center p-4">
     <div class="bg-white w-full max-w-sm rounded-2xl shadow-xl p-6 space-y-4">
-      <div class="text-lg font-semibold">Unlock Editors</div>
-      <p class="text-sm text-gray-600">Enter the editor password.</p>
-      <input id="pw-input" type="password" placeholder="Enter password" class="w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring" />
-      <div id="pw-error" class="text-sm text-red-600 hidden">Incorrect password. Try again.</div>
+      <div class="text-lg font-semibold">Unlock Editor</div>
+      <p class="text-sm text-gray-600">Enter the editor password to access Editors.</p>
+      <input id="pw-input" type="password" placeholder="Enter password" class="w-full px-3 py-2 rounded-xl border focus:outline-none focus:ring"/>
+      <div id="pw-err" class="text-sm text-red-600 hidden">Incorrect password. Try again.</div>
       <div class="flex items-center justify-end gap-2 pt-2">
-        <button id="btn-cancel" class="px-3 py-2 rounded-xl border">Cancel</button>
-        <button id="btn-apply" class="px-3 py-2 rounded-xl border bg-black text-white">Unlock</button>
+        <button id="pw-cancel" class="px-3 py-2 rounded-xl border">Cancel</button>
+        <button id="pw-apply" class="px-3 py-2 rounded-xl border bg-black text-white">Unlock</button>
       </div>
     </div>
   </div>
 
   <script>
-    // ---------- Cloud state ----------
-    let movies = [];                         // array of movie objects
-    let SITE = { podcastEmbed: '', editPassword: 'sage42', omdbKey: '' }; // site-level settings
-    let CLOUD_SHAS = { movies: null, site: null };
+  // ========= Cloud endpoints (created earlier on Vercel) =========
+  const EP = {
+    settings: '/api/settings',   // GET/PUT JSON {siteTitle, tagline, editPassword, podcastEmbed}
+    movies:   '/api/movies',     // GET/PUT JSON [ ...movies ]
+    omdb:     '/api/omdb'        // GET ?i=tt1234567  (server proxies OMDb with OMDB_KEY)
+  };
 
-    // UI state
-    let unlocked = false;
-    let activeTab = 'movies'; // 'movies' | 'ranked' | 'podcast' | 'editors'
-    let query = '';
+  // ========= State =========
+  let settings = {
+    siteTitle: "Jonathan & Karl Watch Everything: Movies and Television",
+    tagline: "watch along with us …",
+    editPassword: "jkwejg25",
+    podcastEmbed: ""
+  };
+  let movies = []; // [{id,title,year,poster,synopsis,genres,runtimeMin,director,cast[],imdbUrl,ranks:{jonathan,karl},isSeries?}]
+  let unlocked = false;
+  let tab = 'movies'; // movies | ranked | podcast | editor
+  let q = '';
 
-    // Helpers
-    const app = sel => document.querySelector(sel);
-    const tpl = id => document.getElementById(id);
-    const qs = (s, r=document) => r.querySelector(s);
-    const qsa = (s, r=document) => Array.from(r.querySelectorAll(s));
-    const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  // ========= Utils =========
+  const qs = (s, r=document) => r.querySelector(s);
+  const qsa = (s, r=document) => Array.from(r.querySelectorAll(s));
+  const esc = (v) => String(v ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  const ensureId = (title, year) => (title+'-'+(year||'')).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+  const topNbold = (el, n=10) => { qsa('li', el).forEach((li,i)=>{ if(i<n) li.classList.add('font-semibold'); }); };
+  const scrollTop = () => window.scrollTo({top:0, behavior:'instant'});
 
-    // ---------- Cloud IO ----------
-    async function loadFromCloud() {
-      const r = await fetch('/api/load');
-      if (!r.ok) throw new Error('Cloud load failed');
-      const j = await r.json();
-      CLOUD_SHAS = j.shas || {};
-      return { movies: j.movies || [], site: j.site || { podcastEmbed:'', editPassword:'sage42', omdbKey:'' } };
-    }
-    async function saveToCloud(nextMovies, nextSite) {
-      const r = await fetch('/api/save', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ movies: nextMovies, site: nextSite, shas: CLOUD_SHAS })
-      });
-      if (!r.ok) {
-        const t = await r.text();
-        throw new Error('Cloud save failed: ' + t);
-      }
-      const j = await r.json();
-      CLOUD_SHAS = j.newShas || CLOUD_SHAS;
-    }
+  function rankMap(list, who){
+    // Dense ranks by each person based on ranks.{who}
+    const m = new Map();
+    list.forEach(x => {
+      const r = x?.ranks?.[who];
+      if (typeof r === 'number') m.set(x.id || ensureId(x.title, x.year), r);
+    });
+    return m;
+  }
 
-    // ---------- Ranking helpers ----------
-    // jonathan/karl rank fields: m.ratings?.jonathanRank, m.ratings?.karlRank
-    function rankMap(list, who='jonathanRank') {
-      const m = new Map();
-      list.forEach(x => {
-        const r = x.ratings && Number.isFinite(+x.ratings[who]) ? +x.ratings[who] : null;
-        if (r != null) m.set(x.id, r);
-      });
-      return m;
-    }
+  // ========= Data IO =========
+  async function loadAll(){
+    const [sRes, mRes] = await Promise.all([fetch(EP.settings), fetch(EP.movies)]);
+    if (sRes.ok) settings = await sRes.json();
+    if (mRes.ok) movies   = await mRes.json();
+    // Normalize ids
+    movies = movies.map(m => ({ id: m.id || ensureId(m.title, m.year), ...m }));
+  }
 
-    // ---------- Render ----------
-    function render() {
-      const root = document.getElementById('app');
-      root.innerHTML = '';
+  async function saveSettings(next){
+    const res = await fetch(EP.settings, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(next) });
+    if (!res.ok) throw new Error('Failed to save settings');
+    settings = await res.json();
+  }
+  async function saveMovies(next){
+    const res = await fetch(EP.movies, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(next) });
+    if (!res.ok) throw new Error('Failed to save movies');
+    movies = await res.json();
+  }
 
-      // Header
-      const header = document.createElement('div');
-      header.className = 'sticky top-0 z-40 backdrop-blur bg-white/80 border-b';
-      header.innerHTML = `
-        <div class="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">
-          <div class="flex items-center gap-2">
-            <div class="flex gap-1">
-              <div class="w-6 h-6 rounded-md bg-orange-500 text-white grid place-content-center text-[11px] font-bold">J</div>
-              <div class="w-6 h-6 rounded-md bg-orange-500 text-white grid place-content-center text-[11px] font-bold">K</div>
-              <div class="w-6 h-6 rounded-md bg-orange-500 text-white grid place-content-center text-[11px] font-bold">W</div>
-              <div class="w-6 h-6 rounded-md bg-orange-500 text-white grid place-content-center text-[11px] font-bold">E</div>
-            </div>
-            <div>
-              <div class="text-base sm:text-lg font-semibold leading-tight">Jonathan & Karl Watch Everything: Movies and Television</div>
-              <div class="text-xs text-gray-500 -mt-0.5">watch along with us …</div>
-            </div>
-          </div>
-          <div class="ml-auto flex items-center gap-2">
-            <input id="search" placeholder="Search title..." value="${esc(query)}" class="px-3 py-2 rounded-xl border w-64 focus:outline-none focus:ring" />
-            ${!unlocked
-              ? '<button id="unlock" class="px-3 py-2 rounded-xl border hover:shadow" title="Unlock editor">🔒 Unlock</button>'
-              : '<button id="lock" class="px-3 py-2 rounded-xl border hover:shadow" title="Lock editor">🔓 Lock</button>'}
+  async function fetchOMDbByUrl(imdbUrl){
+    // Accept full IMDb URL; extract tt id
+    const m = String(imdbUrl||'').match(/tt\d+/);
+    if (!m) throw new Error('IMDb ID not found in URL');
+    const id = m[0];
+    const res = await fetch(`${EP.omdb}?i=${id}`);
+    if (!res.ok) throw new Error('OMDb fetch failed');
+    const o = await res.json();
+    return {
+      year: Number(o.Year) || null,
+      poster: (o.Poster && o.Poster !== 'N/A') ? o.Poster : '',
+      synopsis: o.Plot && o.Plot !== 'N/A' ? o.Plot : '',
+      runtimeMin: (o.Runtime && /\d+/.test(o.Runtime)) ? Number(o.Runtime.match(/\d+/)[0]) : null,
+      director: o.Director && o.Director !== 'N/A' ? o.Director : '',
+      genres: o.Genre ? o.Genre.split(',').map(s=>s.trim()).filter(Boolean) : [],
+      cast: o.Actors ? o.Actors.split(',').map(s=>s.trim()).slice(0,8) : [] // store up to 8; show 4 on hover
+    };
+  }
+
+  // ========= Render =========
+  const app = qs('#app');
+
+  function render(){
+    app.innerHTML = '';
+
+    // Header
+    const head = document.createElement('header');
+    head.className = 'sticky top-0 z-40 backdrop-blur bg-white/80 border-b';
+    head.innerHTML = `
+      <div class="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">
+        <!-- Logo -->
+        <div class="flex items-center gap-3">
+          <div class="h-8 w-8 rounded-lg bg-black text-white flex items-center justify-center font-bold">JK</div>
+          <div>
+            <div class="text-xl font-semibold tracking-tight">${esc(settings.siteTitle)}</div>
+            <div class="text-xs text-gray-600">${esc(settings.tagline)}</div>
           </div>
         </div>
-        <div class="max-w-6xl mx-auto px-4 pb-3 flex items-center gap-2">
-          <button data-tab="movies" class="tab px-3 py-2 rounded-xl border ${activeTab==='movies'?'bg-black text-white':''}">Movies</button>
-          <button data-tab="ranked" class="tab px-3 py-2 rounded-xl border ${activeTab==='ranked'?'bg-black text-white':''}">Ranked List</button>
-          <button data-tab="podcast" class="tab px-3 py-2 rounded-xl border ${activeTab==='podcast'?'bg-black text-white':''}">Podcast</button>
-          ${unlocked ? `<button data-tab="editors" class="tab px-3 py-2 rounded-xl border ${activeTab==='editors'?'bg-black text-white':''}">Editors</button>` : ''}
-        </div>`;
-      root.appendChild(header);
+        <div class="ml-auto flex items-center gap-2">
+          <input id="search" placeholder="Search title, year, genre, cast…" value="${esc(q)}" class="px-3 py-2 rounded-xl border w-64 focus:outline-none focus:ring hidden sm:block"/>
+          ${!unlocked
+            ? '<button id="btn-unlock" class="px-3 py-2 rounded-xl border hover:shadow" title="Unlock editor">🔒 Unlock</button>'
+            : '<button id="btn-lock" class="px-3 py-2 rounded-xl border hover:shadow" title="Lock editor">🔓 Lock</button>'}
+        </div>
+      </div>
+      <div class="max-w-6xl mx-auto px-4 pb-3 flex items-center gap-2">
+        ${tabBtn('movies','Movies')}
+        ${tabBtn('ranked','Ranked List')}
+        ${tabBtn('podcast','Podcast')}
+        ${unlocked ? tabBtn('editor','Editors') : ''}
+      </div>
+    `;
+    app.appendChild(head);
 
-      const main = document.createElement('main');
-      main.className = 'max-w-6xl mx-auto px-4 py-6 space-y-6';
+    const main = document.createElement('main');
+    main.className = 'max-w-6xl mx-auto px-4 py-6 space-y-6';
 
-      // Filtered list
-      const s = query.trim().toLowerCase();
-      const filtered = s
-        ? movies.filter(m => [m.title, String(m.year||''), m.director||'', ...(m.genres||[]), ...(m.cast||[])].filter(Boolean).some(t => String(t).toLowerCase().includes(s)))
-        : movies.slice();
+    const filtered = filterMovies(movies, q);
+    const jr = rankMap(movies, 'jonathan'); // use full list for consistent J#/K#
+    const kr = rankMap(movies, 'karl');
 
-      const jRankMap = rankMap(filtered, 'jonathanRank');
-      const kRankMap = rankMap(filtered, 'karlRank');
+    if (tab === 'movies') main.appendChild(renderMoviesGrid(filtered, jr, kr));
+    if (tab === 'ranked') main.appendChild(renderRankedTwoCol(movies));
+    if (tab === 'podcast') main.appendChild(renderPodcast());
+    if (tab === 'editor' && unlocked) main.appendChild(renderEditor());
 
-      if (activeTab === 'movies') {
-        main.appendChild(renderMovies(filtered, jRankMap, kRankMap));
-      } else if (activeTab === 'ranked') {
-        main.appendChild(renderRankedTwoCols());
-      } else if (activeTab === 'podcast') {
-        main.appendChild(renderPodcast());
-      } else if (activeTab === 'editors' && unlocked) {
-        main.appendChild(renderEditors());
-      }
+    app.appendChild(main);
 
-      root.appendChild(main);
+    // Wire
+    const s = qs('#search'); if (s) s.addEventListener('input', e => { q = e.target.value; render(); });
+    const u = qs('#btn-unlock'); if (u) u.addEventListener('click', openUnlock);
+    const l = qs('#btn-lock'); if (l) l.addEventListener('click', () => { unlocked=false; tab='movies'; render(); });
+    qsa('[data-tab]').forEach(b => b.addEventListener('click', () => { tab = b.dataset.tab; scrollTop(); render(); }));
+  }
 
-      // wire header
-      qs('#search').addEventListener('input', e => { query = e.target.value; render(); });
-      const unlockBtn = qs('#unlock');
-      if (unlockBtn) unlockBtn.addEventListener('click', openUnlock);
-      const lockBtn = qs('#lock');
-      if (lockBtn) lockBtn.addEventListener('click', () => { unlocked = false; activeTab='movies'; render(); });
+  function tabBtn(key, label){
+    const active = tab===key ? 'bg-black text-white' : '';
+    return `<button data-tab="${key}" class="px-3 py-2 rounded-xl border ${active}">${label}</button>`;
+  }
 
-      qsa('.tab').forEach(btn => btn.addEventListener('click', () => {
-        activeTab = btn.getAttribute('data-tab');
-        window.scrollTo({ top: 0, behavior: 'instant' }); // fix "opens mid page"
-        render();
-      }));
-    }
+  function filterMovies(list, term){
+    const s = String(term||'').trim().toLowerCase();
+    if (!s) return list;
+    return list.filter(m => [
+      m.title, String(m.year||''), m.director||'', ...(m.genres||[]), ...(m.cast||[])
+    ].filter(Boolean).some(t => String(t).toLowerCase().includes(s)));
+  }
 
-    function renderMovies(list, jMap, kMap) {
-      const grid = document.createElement('div');
-      // 4 columns on lg (bigger posters)
-      grid.className = 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6';
-      const cardT = tpl('card-template');
+  function renderMoviesGrid(list, jr, kr){
+    const wrap = document.createElement('div');
+    wrap.className = 'grid gap-6 grid-autofill';
+    const tpl = qs('#card-tpl');
 
-      list.forEach(m => {
-        const node = cardT.content.firstElementChild.cloneNode(true);
+    list.forEach(m => {
+      const node = tpl.content.firstElementChild.cloneNode(true);
+      const id = m.id || ensureId(m.title, m.year);
 
-        // Rank badges (J# top-left, K# top-right)
-        const rb = node.querySelector('.ranks');
-        const jv = jMap.get(m.id) ?? '—';
-        const kv = kMap.get(m.id) ?? '—';
-        rb.innerHTML = `<span class="badge">J#${jv}</span><span class="badge badge-light">K#${kv}</span>`;
+      // Ranks
+      node.querySelector('.absolute.top-2.left-2 span').textContent = `J#${jr.get(id) ?? '—'}`;
+      node.querySelector('.absolute.top-2.right-2 span').textContent = `K#${kr.get(id) ?? '—'}`;
 
-        // Poster/link
-        const posterA = node.querySelector('.posterWrap');
-        posterA.href = m.imdbUrl ? m.imdbUrl : 'javascript:void(0)';
-        if (m.poster) {
-          posterA.innerHTML = `<img src="${esc(m.poster)}" alt="${esc(m.title)} poster" class="w-full h-full object-cover group-hover:scale-[1.02] transition" onload="this.parentElement.classList.remove('poster-skeleton')" onerror="this.style.display='none'">`;
-        } else {
-          posterA.classList.add('bg-gray-200');
-        }
-
-        // Title/year
-        node.querySelector('.title').innerHTML = `${esc(m.title||'Untitled')} ${m.year ? `<span class="text-gray-500 font-normal">(${esc(m.year)})</span>` : ''}`;
-
-        // Synopsis
-        const syn = node.querySelector('.synopsis');
-        if (m.synopsis) syn.textContent = m.synopsis; else syn.remove();
-
-        // Hover meta (Director, top 4 cast, Runtime)
-        const hm = node.querySelector('.hovermeta');
-        const bits = [];
-        if (m.director) bits.push(`Director: ${esc(m.director)}`);
-        if (Array.isArray(m.cast) && m.cast.length) bits.push(`Cast: ${esc(m.cast.slice(0,4).join(', '))}`);
-        if (m.runtimeMin) bits.push(`Runtime: ${esc(m.runtimeMin)} min`);
-        hm.innerHTML = bits.join('<br/>');
-
-        grid.appendChild(node);
-      });
-
-      return grid;
-    }
-
-    function renderRankedTwoCols() {
-      const wrap = document.createElement('div');
-      wrap.className = 'grid grid-cols-1 md:grid-cols-2 gap-6';
-
-      const left = document.createElement('div');
-      left.className = 'rounded-2xl border p-4';
-      left.innerHTML = `<div class="font-semibold mb-3">Jonathan’s Rankings</div><ol id="jlist" class="space-y-1 list-decimal list-inside"></ol>`;
-
-      const right = document.createElement('div');
-      right.className = 'rounded-2xl border p-4';
-      right.innerHTML = `<div class="font-semibold mb-3">Karl’s Rankings</div><ol id="klist" class="space-y-1 list-decimal list-inside"></ol>`;
-
-      const jlist = qs('#jlist', left);
-      const klist = qs('#klist', right);
-
-      // Build arrays sorted by rank ascending
-      const jArr = movies.filter(m => m?.ratings?.jonathanRank != null)
-        .sort((a,b)=>a.ratings.jonathanRank - b.ratings.jonathanRank);
-      const kArr = movies.filter(m => m?.ratings?.karlRank != null)
-        .sort((a,b)=>a.ratings.karlRank - b.ratings.karlRank);
-
-      const makeLi = (m, idx, isJ) => {
-        const li = document.createElement('li');
-        const rank = isJ ? m.ratings.jonathanRank : m.ratings.karlRank;
-        const top10 = rank <= 10;
-        li.className = top10 ? 'font-semibold' : '';
-        li.textContent = m.title || 'Untitled';
-        return li;
-      };
-
-      jArr.forEach((m,i)=> jlist.appendChild(makeLi(m,i,true)));
-      kArr.forEach((m,i)=> klist.appendChild(makeLi(m,i,false)));
-
-      wrap.appendChild(left);
-      wrap.appendChild(right);
-      return wrap;
-    }
-
-    function renderPodcast() {
-      const card = document.createElement('div');
-      card.className = 'rounded-2xl border p-4';
-      const inner = document.createElement('div');
-      inner.className = 'rounded-xl border bg-white p-4';
-
-      const header = document.createElement('div');
-      header.className = 'text-sm font-medium mb-3';
-      header.textContent = 'Listen to our podcast';
-      card.appendChild(header);
-
-      if (SITE.podcastEmbed && SITE.podcastEmbed.includes('<iframe')) {
-        // Fit the player nicely; Apple’s embed caps width ~660px internally
-        inner.innerHTML = SITE.podcastEmbed;
+      // Poster
+      const img = node.querySelector('.poster');
+      if (m.poster) {
+        img.src = m.poster; img.alt = `${m.title} poster`;
+        img.onerror = () => { img.src=''; img.parentElement.classList.add('bg-gray-200'); };
       } else {
-        inner.innerHTML = `<div class="text-sm text-gray-600">Paste your Apple Podcasts embed in the Editors tab and Save.</div>`;
+        img.remove();
       }
 
-      card.appendChild(inner);
+      // Click → IMDb (if present)
+      if (m.imdbUrl) {
+        node.style.cursor = 'pointer';
+        node.addEventListener('click', (e) => {
+          // Avoid hijacking selection/copy
+          if (e.target.closest('a,button,input,textarea')) return;
+          window.open(m.imdbUrl, '_blank');
+        });
+      }
+
+      // Title + synopsis
+      node.querySelector('.title').innerHTML = `${esc(m.title)} ${m.year?`<span class="text-gray-500 font-normal">(${m.year})</span>`:''}`;
+      const syn = node.querySelector('.synopsis');
+      if (m.synopsis) syn.textContent = m.synopsis; else syn.remove();
+
+      // Hover meta (Director → Cast(4) → Runtime)
+      const bits = [];
+      if (m.director) bits.push(`<b>Director:</b> ${esc(m.director)}`);
+      if (m.cast && m.cast.length) bits.push(`<b>Cast:</b> ${m.cast.slice(0,4).map(esc).join(', ')}`);
+      if (m.runtimeMin) bits.push(`<b>Runtime:</b> ${m.runtimeMin} min`);
+      node.querySelector('.hovermeta').innerHTML = bits.join('<br/>');
+
+      wrap.appendChild(node);
+    });
+
+    return wrap;
+  }
+
+  function renderRankedTwoCol(list){
+    // Build maps from declared ranks
+    const byJ = [...list].filter(x => typeof x?.ranks?.jonathan === 'number')
+      .sort((a,b)=>a.ranks.jonathan - b.ranks.jonathan);
+    const byK = [...list].filter(x => typeof x?.ranks?.karl === 'number')
+      .sort((a,b)=>a.ranks.karl - b.ranks.karl);
+
+    const wrap = document.createElement('div');
+    wrap.className = 'grid grid-cols-1 lg:grid-cols-2 gap-6';
+
+    const tpl = qs('#rank-li-tpl');
+
+    function col(title, arr, who){
+      const card = document.createElement('div');
+      card.className = 'rounded-2xl border bg-white shadow-card';
+      card.innerHTML = `<div class="px-4 py-3 border-b font-semibold">${title}</div><div class="p-4"><ol class="list-decimal pl-5 space-y-1"></ol></div>`;
+      const ol = card.querySelector('ol');
+      arr.forEach((m,i) => {
+        const li = tpl.content.firstElementChild.cloneNode(true);
+        li.textContent = m.title;
+        if (i < 10) li.classList.add('font-semibold'); // Top 10 bold
+        ol.appendChild(li);
+      });
       return card;
     }
 
-    function renderEditors() {
-      const box = document.createElement('div');
-      box.className = 'space-y-6';
+    wrap.appendChild(col("Jonathan’s Ranked List", byJ, 'jonathan'));
+    wrap.appendChild(col("Karl’s Ranked List", byK, 'karl'));
+    return wrap;
+  }
 
-      // Password + OMDb + Podcast block
-      const siteCard = document.createElement('div');
-      siteCard.className = 'rounded-2xl border p-4 space-y-3';
-      siteCard.innerHTML = `
-        <div class="font-semibold">Site Settings</div>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 items-center">
-          <input id="pw-current" class="px-3 py-2 rounded-xl border" type="password" placeholder="Current password"/>
-          <input id="pw-new" class="px-3 py-2 rounded-xl border" type="password" placeholder="New password"/>
-          <input id="pw-confirm" class="px-3 py-2 rounded-xl border" type="password" placeholder="Confirm new password"/>
-          <button id="pw-save" class="px-3 py-2 rounded-xl border bg-black text-white">Change Password</button>
-          <div id="pw-msg" class="text-sm text-gray-600 md:col-span-2"></div>
+  function renderPodcast(){
+    const box = document.createElement('div');
+    const src = settings.podcastEmbed || '';
+    // Accept full iframe embed (extract src=) or direct embed URL
+    let embedSrc = src;
+    const m = src.match(/src="([^"]+)"/i);
+    if (m) embedSrc = m[1];
+
+    box.innerHTML = `
+      <div class="rounded-2xl border bg-white shadow-card overflow-hidden">
+        <div class="px-4 py-3 border-b font-semibold">Listen to our podcast</div>
+        <div class="p-4">
+          ${embedSrc ? `
+            <iframe height="450" width="100%" title="Media player"
+              src="${esc(embedSrc)}" id="embedPlayer"
+              sandbox="allow-forms allow-popups allow-same-origin allow-scripts allow-top-navigation-by-user-activation"
+              allow="autoplay *; encrypted-media; clipboard-write"
+              style="border:0;border-radius:12px;width:100%;height:450px;max-width:100%;">
+            </iframe>
+          ` : `
+            <div class="text-sm text-gray-600">No podcast embed set yet. Add it in Editors → Settings.</div>
+          `}
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 items-center">
-          <input id="omdb-key" class="px-3 py-2 rounded-xl border md:col-span-2" type="text" placeholder="OMDb API Key (optional)" value="${esc(SITE.omdbKey||'')}"/>
-          <button id="omdb-save" class="px-3 py-2 rounded-xl border">Save OMDb Key</button>
+      </div>
+    `;
+    return box;
+  }
+
+  function renderEditor(){
+    const wrap = document.createElement('div');
+    wrap.className = 'space-y-6';
+
+    // Settings card
+    const s = document.createElement('div');
+    s.className = 'rounded-2xl border bg-white shadow-card';
+    s.innerHTML = `
+      <div class="px-4 py-3 border-b font-semibold">Settings</div>
+      <div class="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <label class="block"><span class="text-sm">Site title</span><input id="st-title" class="mt-1 w-full px-3 py-2 rounded-xl border" value="${esc(settings.siteTitle)}"/></label>
+        <label class="block"><span class="text-sm">Tagline</span><input id="st-tag" class="mt-1 w-full px-3 py-2 rounded-xl border" value="${esc(settings.tagline)}"/></label>
+        <label class="block md:col-span-2"><span class="text-sm">Podcast embed (Apple iframe OR URL)</span><input id="st-pod" class="mt-1 w-full px-3 py-2 rounded-xl border" value="${esc(settings.podcastEmbed)}"/></label>
+        <label class="block md:col-span-2"><span class="text-sm">Editor password</span><input id="st-pass" type="password" class="mt-1 w-full px-3 py-2 rounded-xl border" value="${esc(settings.editPassword)}"/></label>
+        <div class="md:col-span-2"><button id="st-save" class="px-3 py-2 rounded-xl border bg-black text-white">Save Settings</button></div>
+      </div>
+    `;
+    wrap.appendChild(s);
+
+    // Movies card
+    const m = document.createElement('div');
+    m.className = 'rounded-2xl border bg-white shadow-card';
+    m.innerHTML = `
+      <div class="px-4 py-3 border-b font-semibold">Movies (Edit / Add)</div>
+      <div class="p-4 space-y-4">
+        <div class="rounded-xl border">
+          <table class="w-full text-sm">
+            <thead class="bg-gray-50 border-b">
+              <tr>
+                <th class="text-left px-2 py-2">Title</th>
+                <th class="text-left px-2 py-2">Year</th>
+                <th class="text-left px-2 py-2">IMDb</th>
+                <th class="text-left px-2 py-2">Director</th>
+                <th class="text-left px-2 py-2">Cast (comma-sep)</th>
+                <th class="text-left px-2 py-2">J</th>
+                <th class="text-left px-2 py-2">K</th>
+                <th class="text-left px-2 py-2">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="mv-tbody"></tbody>
+          </table>
         </div>
-        <div class="space-y-2">
-          <label class="text-sm font-medium">Apple Podcasts Embed</label>
-          <textarea id="pod-embed" rows="3" class="w-full px-3 py-2 rounded-xl border" placeholder="Paste the <iframe> from Apple Podcasts">${esc(SITE.podcastEmbed||'')}</textarea>
-          <button id="pod-save" class="px-3 py-2 rounded-xl border">Save Podcast Embed</button>
-        </div>`;
-      box.appendChild(siteCard);
+        <button id="mv-add" class="px-3 py-2 rounded-xl border">Add Movie</button>
+        <button id="mv-saveall" class="px-3 py-2 rounded-xl border bg-black text-white">Save All</button>
+      </div>
+    `;
+    wrap.appendChild(m);
 
-      // Movies inline editor
-      const listCard = document.createElement('div');
-      listCard.className = 'rounded-2xl border p-4';
-      listCard.innerHTML = `
-        <div class="font-semibold mb-3">Edit Existing Movies</div>
-        <input id="filter" placeholder="Filter by title..." class="px-3 py-2 rounded-xl border w-full md:w-80 mb-4"/>
-        <div id="e-list" class="space-y-6"></div>`;
-      box.appendChild(listCard);
+    // Wire settings
+    setTimeout(()=>{
+      qs('#st-save').addEventListener('click', async ()=>{
+        const next = {
+          siteTitle: qs('#st-title').value.trim(),
+          tagline: qs('#st-tag').value.trim(),
+          podcastEmbed: qs('#st-pod').value.trim(),
+          editPassword: qs('#st-pass').value
+        };
+        await saveSettings(next);
+        alert('Settings saved'); render();
+      });
+    });
 
-      // Wire site settings
-      const pwCur = qs('#pw-current', siteCard);
-      const pwNew = qs('#pw-new', siteCard);
-      const pwCon = qs('#pw-confirm', siteCard);
-      const pwBtn = qs('#pw-save', siteCard);
-      const pwMsg = qs('#pw-msg', siteCard);
-      pwBtn.onclick = async () => {
-        if (pwCur.value !== SITE.editPassword) { pwMsg.textContent = 'Current password is incorrect.'; pwMsg.className='text-sm text-red-600'; return; }
-        if (!pwNew.value || pwNew.value !== pwCon.value) { pwMsg.textContent = 'New passwords do not match.'; pwMsg.className='text-sm text-red-600'; return; }
-        SITE.editPassword = pwNew.value;
-        pwMsg.textContent = 'Password updated.'; pwMsg.className='text-sm text-green-600';
-        await saveToCloud(movies, SITE);
-      };
-
-      qs('#omdb-save', siteCard).onclick = async () => {
-        SITE.omdbKey = qs('#omdb-key', siteCard).value.trim();
-        await saveToCloud(movies, SITE);
-        alert('OMDb key saved.');
-      };
-
-      qs('#pod-save', siteCard).onclick = async () => {
-        SITE.podcastEmbed = qs('#pod-embed', siteCard).value.trim();
-        await saveToCloud(movies, SITE);
-        alert('Podcast embed saved. Check the Podcast tab.');
-      };
-
-      // Render movie rows
-      const container = qs('#e-list', listCard);
-      const filter = qs('#filter', listCard);
-      const rows = (movies.slice().sort((a,b)=> (a.title||'').localeCompare(b.title||'')));
-      const paint = () => {
-        const term = filter.value.trim().toLowerCase();
-        container.innerHTML = '';
-        rows.forEach((m, idx) => {
-          if (term && !(m.title||'').toLowerCase().includes(term)) return;
-          const row = document.createElement('div');
-          row.className = 'rounded-lg border p-3 grid grid-cols-1 md:grid-cols-6 gap-2 items-start';
-
-          row.innerHTML = `
-            <input class="e-title px-2 py-2 rounded border md:col-span-2" placeholder="Title" value="${esc(m.title||'')}"/>
-            <input class="e-year px-2 py-2 rounded border" placeholder="Year" value="${esc(m.year||'')}"/>
-            <input class="e-jrank px-2 py-2 rounded border" placeholder="Jonathan Rank" value="${esc(m?.ratings?.jonathanRank ?? '')}"/>
-            <input class="e-krank px-2 py-2 rounded border" placeholder="Karl Rank" value="${esc(m?.ratings?.karlRank ?? '')}"/>
-            <input class="e-imdb px-2 py-2 rounded border md:col-span-3" placeholder="IMDb URL" value="${esc(m.imdbUrl||'')}"/>
-            <button class="btn-fetch px-2 py-2 rounded border">Fetch IMDb</button>
-
-            <input class="e-poster px-2 py-2 rounded border md:col-span-3" placeholder="Poster URL" value="${esc(m.poster||'')}"/>
-            <input class="e-dir px-2 py-2 rounded border" placeholder="Director" value="${esc(m.director||'')}"/>
-            <input class="e-cast px-2 py-2 rounded border md:col-span-2" placeholder="Cast (comma-separated)" value="${esc(Array.isArray(m.cast)?m.cast.join(', '):'')}"/>
-            <input class="e-run px-2 py-2 rounded border" placeholder="Runtime (min)" value="${esc(m.runtimeMin||'')}"/>
-
-            <textarea class="e-syn px-2 py-2 rounded border md:col-span-5" rows="2" placeholder="Synopsis">${esc(m.synopsis||'')}</textarea>
-            <div class="flex gap-2 justify-end md:col-span-1">
-              <button class="btn-save px-3 py-2 rounded border bg-black text-white">Save</button>
-              <button class="btn-del px-3 py-2 rounded border">Delete</button>
-            </div>
-          `;
-
-          // Wire row
-          const getVals = () => {
-            const get = cls => qs(cls, row).value.trim();
-            const title = get('.e-title');
-            const year = get('.e-year') ? Number(get('.e-year')) : null;
-            const imdb = get('.e-imdb');
-            const poster = get('.e-poster');
-            const director = get('.e-dir');
-            const cast = get('.e-cast').split(',').map(s=>s.trim()).filter(Boolean);
-            const runtimeMin = get('.e-run') ? Number(get('.e-run')) : null;
-            const synopsis = qs('.e-syn', row).value.trim();
-            const jrank = get('.e-jrank') ? Number(get('.e-jrank')) : null;
-            const krank = get('.e-krank') ? Number(get('.e-krank')) : null;
-            return { title, year, imdb, poster, director, cast, runtimeMin, synopsis, jrank, krank };
-          };
-
-          qs('.btn-save', row).onclick = async () => {
-            const v = getVals();
-            m.title = v.title; m.year = v.year;
-            m.imdbUrl = v.imdb;
-            m.poster = v.poster; m.director = v.director;
-            m.cast = v.cast; m.runtimeMin = v.runtimeMin; m.synopsis = v.synopsis;
-            m.ratings = m.ratings || {};
-            m.ratings.jonathanRank = v.jrank;
-            m.ratings.karlRank = v.krank;
-            if (!m.id) m.id = (m.title||'untitled').toLowerCase().replace(/[^a-z0-9]+/g,'-') + '-' + Math.random().toString(36).slice(2,7);
-            await saveToCloud(movies, SITE);
-            alert('Saved.');
-          };
-
-          qs('.btn-del', row).onclick = async () => {
-            if (!confirm('Delete this movie?')) return;
-            movies = movies.filter(x => x !== m);
-            await saveToCloud(movies, SITE);
-            paint();
-          };
-
-          qs('.btn-fetch', row).onclick = async () => {
-            const imdbUrl = qs('.e-imdb', row).value.trim();
-            if (!imdbUrl) return alert('Paste an IMDb URL first.');
-            if (!SITE.omdbKey) return alert('Add your OMDb API key in Site Settings, then try again.');
-            try {
-              // Try to parse tt id
-              const match = imdbUrl.match(/tt\d+/);
-              if (!match) throw new Error('Could not find IMDb tt id in URL.');
-              const tt = match[0];
-              const r = await fetch(`https://www.omdbapi.com/?i=${tt}&plot=short&r=json&apikey=${encodeURIComponent(SITE.omdbKey)}`);
-              const j = await r.json();
-              if (j.Response === 'False') throw new Error(j.Error || 'OMDb error');
-
-              // Fill fields
-              qs('.e-title', row).value = j.Title || '';
-              qs('.e-year', row).value = j.Year || '';
-              qs('.e-dir', row).value = j.Director || '';
-              qs('.e-cast', row).value = j.Actors || '';
-              qs('.e-run', row).value = j.Runtime ? (j.Runtime.replace(' min','')) : '';
-              qs('.e-syn', row).value = j.Plot || '';
-              // Try poster
-              if (j.Poster && j.Poster !== 'N/A') qs('.e-poster', row).value = j.Poster;
-
-              // Save minimal imdbUrl
-              qs('.e-imdb', row).value = `https://www.imdb.com/title/${tt}/`;
-
-              alert('Fetched from OMDb. Review and click Save.');
-            } catch (e) {
-              alert('Fetch failed: ' + e.message);
-            }
-          };
-
-          container.appendChild(row);
-        });
-      };
-      paint();
-      filter.addEventListener('input', paint);
-
-      return box;
+    // Render movies table
+    const tbody = m.querySelector('#mv-tbody');
+    function rowFor(item){
+      const tr = document.createElement('tr');
+      tr.className = 'border-b last:border-none align-top';
+      tr.innerHTML = `
+        <td class="px-2 py-2"><input class="w-56 px-2 py-1 rounded border mv-title" value="${esc(item.title||'')}"/></td>
+        <td class="px-2 py-2"><input class="w-16 px-2 py-1 rounded border mv-year" value="${esc(item.year||'')}"/></td>
+        <td class="px-2 py-2"><input class="w-60 px-2 py-1 rounded border mv-imdb" value="${esc(item.imdbUrl||'')}"/></td>
+        <td class="px-2 py-2"><input class="w-44 px-2 py-1 rounded border mv-dir" value="${esc(item.director||'')}"/></td>
+        <td class="px-2 py-2"><input class="w-72 px-2 py-1 rounded border mv-cast" value="${esc((item.cast||[]).join(', '))}"/></td>
+        <td class="px-2 py-2"><input class="w-12 px-2 py-1 rounded border mv-j" value="${esc(item?.ranks?.jonathan||'')}"/></td>
+        <td class="px-2 py-2"><input class="w-12 px-2 py-1 rounded border mv-k" value="${esc(item?.ranks?.karl||'')}"/></td>
+        <td class="px-2 py-2 space-x-2">
+          <button class="px-2 py-1 rounded border btn-fetch">Fetch</button>
+          <button class="px-2 py-1 rounded border btn-del">Delete</button>
+        </td>
+      `;
+      // Actions
+      tr.querySelector('.btn-fetch').addEventListener('click', async ()=>{
+        try{
+          const url = tr.querySelector('.mv-imdb').value.trim();
+          const patch = await fetchOMDbByUrl(url);
+          tr.querySelector('.mv-year').value = patch.year || '';
+          tr.querySelector('.mv-dir').value  = patch.director || '';
+          tr.querySelector('.mv-cast').value = (patch.cast||[]).join(', ');
+          // Stash poster & synopsis on the element for saveAll
+          tr.dataset.poster = patch.poster || '';
+          tr.dataset.synopsis = patch.synopsis || '';
+          tr.dataset.runtimeMin = patch.runtimeMin || '';
+          alert('Fetched from OMDb');
+        }catch(err){ alert(err.message); }
+      });
+      tr.querySelector('.btn-del').addEventListener('click', ()=>{
+        tr.remove();
+      });
+      return tr;
     }
 
-    // ---------- Unlock modal ----------
-    function openUnlock() {
-      const overlay = qs('#unlock-overlay');
-      const input = qs('#pw-input');
-      const err = qs('#pw-error');
-      const btnCancel = qs('#btn-cancel');
-      const btnApply = qs('#btn-apply');
-      overlay.classList.remove('hidden'); overlay.classList.add('flex');
-      input.value=''; input.focus(); err.classList.add('hidden');
+    movies.forEach(mv => tbody.appendChild(rowFor(mv)));
+    qs('#mv-add').addEventListener('click', ()=> tbody.appendChild(rowFor({
+      title:'', year:'', imdbUrl:'', director:'', cast:[], ranks:{jonathan:null,karl:null}
+    })));
 
-      function close() {
-        overlay.classList.add('hidden'); overlay.classList.remove('flex');
-        btnApply.removeEventListener('click', onApply);
-        btnCancel.removeEventListener('click', onCancel);
-        input.removeEventListener('keydown', onKey);
-      }
-      function onCancel(){ close(); }
-      function onApply(){
-        if (input.value.trim() === SITE.editPassword) {
-          unlocked = true; activeTab = 'editors'; close(); render();
-        } else { err.classList.remove('hidden'); }
-      }
-      function onKey(e){ if (e.key==='Enter') onApply(); if (e.key==='Escape') onCancel(); }
-      btnCancel.addEventListener('click', onCancel);
-      btnApply.addEventListener('click', onApply);
-      input.addEventListener('keydown', onKey);
-    }
+    qs('#mv-saveall').addEventListener('click', async ()=>{
+      const rows = qsa('tr', tbody);
+      const next = rows.map(tr => {
+        const title = tr.querySelector('.mv-title').value.trim();
+        const year  = Number(tr.querySelector('.mv-year').value)||null;
+        const imdb  = tr.querySelector('.mv-imdb').value.trim();
+        const dir   = tr.querySelector('.mv-dir').value.trim();
+        const cast  = tr.querySelector('.mv-cast').value.split(',').map(s=>s.trim()).filter(Boolean);
+        const jr    = Number(tr.querySelector('.mv-j').value)||null;
+        const kr    = Number(tr.querySelector('.mv-k').value)||null;
+        const poster = tr.dataset.poster || '';
+        const synopsis = tr.dataset.synopsis || '';
+        const runtimeMin = tr.dataset.runtimeMin ? Number(tr.dataset.runtimeMin) : null;
 
-    // ---------- Boot ----------
-    (async function init(){
-      try {
-        const cloud = await loadFromCloud();
-        movies = Array.isArray(cloud.movies) ? cloud.movies : [];
-        SITE = cloud.site || SITE;
-      } catch (e) {
-        movies = [];
-        SITE = { podcastEmbed:'', editPassword:'sage42', omdbKey:'' };
-      }
-      render();
-    })();
+        return {
+          id: ensureId(title, year),
+          title, year, imdbUrl: imdb, director: dir, cast,
+          poster: poster || (movies.find(x=>x.title===title && x.year===year)?.poster || ''),
+          synopsis: synopsis || (movies.find(x=>x.title===title && x.year===year)?.synopsis || ''),
+          runtimeMin: runtimeMin || (movies.find(x=>x.title===title && x.year===year)?.runtimeMin || null),
+          genres: movies.find(x=>x.title===title && x.year===year)?.genres || [],
+          ranks: { jonathan: jr, karl: kr }
+        };
+      });
+      await saveMovies(next);
+      alert('Movies saved'); render();
+    });
+
+    return wrap;
+  }
+
+  // ========= Unlock modal =========
+  function openUnlock(){
+    const el = qs('#unlock'); el.classList.remove('hidden'); el.classList.add('flex');
+    const input = qs('#pw-input'); const err = qs('#pw-err');
+    const onApply = () => {
+      if (input.value === settings.editPassword){ unlocked = true; tab='editor'; close(); render(); }
+      else err.classList.remove('hidden');
+    };
+    const close = () => {
+      el.classList.add('hidden'); el.classList.remove('flex');
+      qs('#pw-apply').removeEventListener('click', onApply);
+      qs('#pw-cancel').removeEventListener('click', close);
+      input.removeEventListener('keydown', onKey);
+    };
+    const onKey = (e)=>{ if(e.key==='Enter') onApply(); if(e.key==='Escape') close(); };
+    qs('#pw-apply').addEventListener('click', onApply);
+    qs('#pw-cancel').addEventListener('click', close);
+    input.addEventListener('keydown', onKey);
+    input.value=''; err.classList.add('hidden'); input.focus();
+  }
+
+  // ========= Boot =========
+  (async function(){
+    try{ await loadAll(); }catch(e){ console.warn('Cloud load failed, using defaults', e); }
+    // Tab from ?tab=
+    const p = new URLSearchParams(location.search);
+    tab = ['movies','ranked','podcast','editor'].includes(p.get('tab')) ? p.get('tab') : 'movies';
+    render();
+  })();
   </script>
 </body>
 </html>
