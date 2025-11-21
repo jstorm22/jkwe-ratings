@@ -27,7 +27,7 @@ export function RankedCompareTab({ movies }: RankedCompareTabProps) {
                 {index + 1}.
               </div>
               <div className="flex-1">
-                <p className="font-medium">{movie.title}</p>
+                <p className={index < 10 ? "font-bold" : "font-medium"}>{movie.title}</p>
                 {movie.year && <p className="text-sm text-gray-400">({movie.year})</p>}
               </div>
             </div>
@@ -50,7 +50,7 @@ export function RankedCompareTab({ movies }: RankedCompareTabProps) {
                 {index + 1}.
               </div>
               <div className="flex-1">
-                <p className="font-medium">{movie.title}</p>
+                <p className={index < 10 ? "font-bold" : "font-medium"}>{movie.title}</p>
                 {movie.year && <p className="text-sm text-gray-400">({movie.year})</p>}
               </div>
             </div>
